@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "522009571370",
+    "project_id": "azkary-d9407",
+    "storage_bucket": "azkary-d9407.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:522009571370:android:3e3857ecf72aea17ab1353",
+        "android_client_info": {
+          "package_name": "com.example.azkar"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "522009571370-ovnqk6tlqbe5q39uam9171t8gfe6he6r.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.azkar",
+            "certificate_hash": "894ba3446f487f134e97f3f0181a66993efe71f7"
+          }
+        },
+        {
+          "client_id": "522009571370-4c003ook6nqdolbbe3d50ut021b63eq2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBhoXOnu9PNaXw16p8Q7nJ_bbdi3ia5X94"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "522009571370-4c003ook6nqdolbbe3d50ut021b63eq2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
