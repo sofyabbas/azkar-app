@@ -51,9 +51,8 @@ class _ZikrCardState extends State<ZikrCard> {
         currentCount--;
       });
       _saveProgress(currentCount);
-      if (currentCount == 0) {
-        Provider.of<AzkarProvider>(context, listen: false).incrementTotalAzkarRead();
-      }
+      // Increment total count on every tap
+      Provider.of<AzkarProvider>(context, listen: false).incrementTotalAzkarRead();
     }
   }
 

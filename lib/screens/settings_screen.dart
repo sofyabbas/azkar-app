@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:adhan/adhan.dart';
 import '../providers/prayer_provider.dart';
+import '../services/notification_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -14,6 +15,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool _isAutomaticLocation;
   late TextEditingController _cityController;
   late CalculationMethod _calculationMethod;
+  late String _adhanSound;
+
+  final Map<String, String> _adhanSounds = {
+    'adhan': 'الأذان الافتراضي',
+    'adhan_makkah': 'أذان مكة المكرمة',
+    'adhan_madina': 'أذان المدينة المنورة',
+    'adhan_aqsa': 'أذان المسجد الأقصى',
+    'adhan_egypt': 'الأذان المصري',
+  };
 
   final Map<CalculationMethod, String> _methods = {
     CalculationMethod.egyptian: 'الهيئة المصرية العامة للمساحة',
@@ -32,6 +42,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _isAutomaticLocation = provider.isAutomaticLocation;
     _cityController = TextEditingController(text: provider.manualLocationText);
     _calculationMethod = provider.calculationMethod;
+    _adhanSound = provider.adhanSound;
   }
 
   @override
@@ -46,6 +57,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _isAutomaticLocation,
       _cityController.text.trim(),
       _calculationMethod,
+      _adhanSound,
     );
     Navigator.of(context).pop();
   }
@@ -85,6 +97,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     if (newValue != null) {
                       setState(() {
                         _calculationMethod = newValue;
+                      });
+                    }
+                  },
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          
+          // Adhan Sound Section
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('صوت الأذان', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+              IconButton(
+                icon: const Icon(Icons.play_circle_fill),
+                color: theme.colorScheme.primary,
+                tooltip: 'تجربة الأذان',
+                onPressed: () {
+                  NotificationService().testAzanSound(_adhanSound);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Card(
+            elevation: 0,
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _adhanSound,
+                  isExpanded: true,
+                  icon: const Icon(Icons.arrow_drop_down),
+                  items: _adhanSounds.entries.map((entry) {
+                    return DropdownMenuItem<String>(
+                      value: entry.key,
+                      child: Text(entry.value),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _adhanSound = newValue;
                       });
                     }
                   },

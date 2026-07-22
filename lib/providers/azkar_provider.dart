@@ -12,6 +12,8 @@ class AzkarProvider with ChangeNotifier {
   bool _isLoading = true;
   String _errorMessage = '';
   
+  Set<String> _favoriteCategoryIds = {};
+  
   int _totalAzkarRead = 0;
   User? _currentUser;
 
@@ -19,6 +21,7 @@ class AzkarProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String get errorMessage => _errorMessage;
   int get totalAzkarRead => _totalAzkarRead;
+  Set<String> get favoriteCategoryIds => _favoriteCategoryIds;
 
   AzkarProvider() {
     _loadAzkarData();
@@ -45,6 +48,10 @@ class AzkarProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     // Start with guest total if available, otherwise fallback to old totalAzkarRead, or 0
     _totalAzkarRead = prefs.getInt('guestTotalAzkarRead') ?? prefs.getInt('totalAzkarRead') ?? 0;
+    
+    final favList = prefs.getStringList('favoriteCategoryIds') ?? [];
+    _favoriteCategoryIds = favList.toSet();
+    
     notifyListeners();
   }
 
@@ -112,5 +119,22 @@ class AzkarProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> toggleFavoriteCategory(String id) async {
+    if (_favoriteCategoryIds.contains(id)) {
+      _favoriteCategoryIds.remove(id);
+    } else {
+      _favoriteCategoryIds.add(id);
+    }
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('favoriteCategoryIds', _favoriteCategoryIds.toList());
+  }
+
+  bool isFavoriteCategory(String id) => _favoriteCategoryIds.contains(id);
+
+  List<AzkarCategory> getFavoriteCategories() {
+    return _categories.where((cat) => _favoriteCategoryIds.contains(cat.id)).toList();
   }
 }

@@ -36,6 +36,7 @@ class NotificationService {
     required String title,
     required String body,
     required DateTime scheduledTime,
+    String soundName = 'adhan',
   }) async {
     if (scheduledTime.isBefore(DateTime.now())) return;
 
@@ -44,22 +45,45 @@ class NotificationService {
       title: title,
       body: body,
       scheduledDate: tz.TZDateTime.from(scheduledTime, tz.local),
-      notificationDetails: const NotificationDetails(
+      notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
-          'prayer_channel_id',
+          'prayer_channel_$soundName',
           'Prayer Times',
           channelDescription: 'Notifications for daily prayers',
           importance: Importance.max,
           priority: Priority.high,
-          sound: RawResourceAndroidNotificationSound('adhan'),
+          sound: RawResourceAndroidNotificationSound(soundName),
           playSound: true,
         ),
         iOS: DarwinNotificationDetails(
-          sound: 'adhan.mp3',
+          sound: '$soundName.mp3',
           presentSound: true,
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    );
+  }
+
+  Future<void> testAzanSound(String soundName) async {
+    await _flutterLocalNotificationsPlugin.show(
+      id: 999, 
+      title: 'تجربة الأذان',
+      body: 'هذا اختبار لصوت الأذان',
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          'prayer_test_channel_$soundName',
+          'Test Prayer Times',
+          channelDescription: 'Testing notifications for daily prayers',
+          importance: Importance.max,
+          priority: Priority.high,
+          sound: RawResourceAndroidNotificationSound(soundName),
+          playSound: true,
+        ),
+        iOS: DarwinNotificationDetails(
+          sound: '$soundName.mp3',
+          presentSound: true,
+        ),
+      ),
     );
   }
 

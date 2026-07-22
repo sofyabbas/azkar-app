@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 
 import 'providers/azkar_provider.dart';
 import 'providers/prayer_provider.dart';
+import 'providers/forty_days_provider.dart';
 import 'screens/main_screen.dart';
 import 'services/notification_service.dart';
 
@@ -17,6 +18,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AzkarProvider()),
         ChangeNotifierProvider(create: (_) => PrayerProvider()),
+        ChangeNotifierProvider(create: (_) => FortyDaysProvider()),
       ],
       child: const AzkarApp(),
     ),

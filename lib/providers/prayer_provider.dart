@@ -17,6 +17,7 @@ class PrayerProvider with ChangeNotifier {
   bool _isAutomaticLocation = true;
   String _manualLocationText = '';
   CalculationMethod _calculationMethod = CalculationMethod.egyptian;
+  String _adhanSound = 'adhan';
 
   Timer? _timer;
   Duration timeUntilNextPrayer = Duration.zero;
@@ -38,6 +39,7 @@ class PrayerProvider with ChangeNotifier {
   bool get isAutomaticLocation => _isAutomaticLocation;
   String get manualLocationText => _manualLocationText;
   CalculationMethod get calculationMethod => _calculationMethod;
+  String get adhanSound => _adhanSound;
 
   String get calculationMethodName {
     switch (_calculationMethod) {
@@ -56,15 +58,17 @@ class PrayerProvider with ChangeNotifier {
     _initPrayerTimes();
   }
 
-  Future<void> updateSettings(bool isAuto, String manualText, CalculationMethod method) async {
+  Future<void> updateSettings(bool isAuto, String manualText, CalculationMethod method, String adhanSoundName) async {
     _isAutomaticLocation = isAuto;
     _manualLocationText = manualText;
     _calculationMethod = method;
+    _adhanSound = adhanSoundName;
     
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isAutomaticLocation', _isAutomaticLocation);
     await prefs.setString('manualLocationText', _manualLocationText);
     await prefs.setInt('calculationMethodIndex', _calculationMethod.index);
+    await prefs.setString('adhanSound', _adhanSound);
     
     _initPrayerTimes();
   }
@@ -235,6 +239,8 @@ class PrayerProvider with ChangeNotifier {
       _calculationMethod = CalculationMethod.values[methodIndex];
     }
     
+    _adhanSound = prefs.getString('adhanSound') ?? 'adhan';
+    
     for (var prayer in prayerToggles.keys) {
       final val = prefs.getBool('prayer_${prayer.name}');
       if (val != null) {
@@ -279,6 +285,7 @@ class PrayerProvider with ChangeNotifier {
           title: 'حان الآن وقت صلاة ${p['name']}',
           body: 'الصلاة خير من النوم',
           scheduledTime: time,
+          soundName: _adhanSound,
         );
       }
     }
