@@ -58,6 +58,10 @@ class PrayerProvider with ChangeNotifier {
     _initPrayerTimes();
   }
 
+  Future<void> refreshLocation() async {
+    await _initPrayerTimes();
+  }
+
   Future<void> updateSettings(bool isAuto, String manualText, CalculationMethod method, String adhanSoundName) async {
     _isAutomaticLocation = isAuto;
     _manualLocationText = manualText;
@@ -83,88 +87,63 @@ class PrayerProvider with ChangeNotifier {
       double? latitude;
       double? longitude;
 
+      final prefs = await SharedPreferences.getInstance();
+
       if (_isAutomaticLocation) {
-        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-        if (!serviceEnabled) {
-          _errorMessage = 'خدمات الموقع معطلة. يرجى تفعيلها.';
-          _isLoading = false;
-          notifyListeners();
-          return;
-        }
-
-        LocationPermission permission = await Geolocator.checkPermission();
-        if (permission == LocationPermission.denied) {
-          permission = await Geolocator.requestPermission();
-          if (permission == LocationPermission.denied) {
-            _errorMessage = 'تم رفض صلاحيات الموقع.';
-            _isLoading = false;
-            notifyListeners();
-            return;
-          }
-        }
-        
-        if (permission == LocationPermission.deniedForever) {
-          _errorMessage = 'صلاحيات الموقع مرفوضة بشكل دائم.';
-          _isLoading = false;
-          notifyListeners();
-          return;
-        }
-
-        final position = await Geolocator.getCurrentPosition();
-        latitude = position.latitude;
-        longitude = position.longitude;
-        
         try {
-          List<Placemark> placemarks = await Geocoding().placemarkFromCoordinates(latitude, longitude);
-          if (placemarks.isNotEmpty) {
-            final place = placemarks.first;
-            final city = place.locality?.isNotEmpty == true ? place.locality : place.subAdministrativeArea;
-            _locationName = '${city ?? ''}, ${place.country ?? ''}'.trim();
-            if (_locationName.startsWith(',')) _locationName = _locationName.substring(1).trim();
-          }
-        } catch (e) {
-          _locationName = 'إحداثيات: ${latitude.toStringAsFixed(2)}, ${longitude.toStringAsFixed(2)}';
-        }
-      } else {
-        // Manual Location
-        if (_manualLocationText.isEmpty) {
-          _errorMessage = 'يرجى إدخال اسم المدينة في الإعدادات.';
-          _isLoading = false;
-          notifyListeners();
-          return;
-        }
-        
-        try {
-          List<Location> locations = await Geocoding().locationFromAddress(_manualLocationText);
-          if (locations.isNotEmpty) {
-            latitude = locations.first.latitude;
-            longitude = locations.first.longitude;
-            
-            // Try to resolve properly formatted name
-            try {
-              List<Placemark> placemarks = await Geocoding().placemarkFromCoordinates(latitude, longitude);
-              if (placemarks.isNotEmpty) {
-                final place = placemarks.first;
-                final city = place.locality?.isNotEmpty == true ? place.locality : place.subAdministrativeArea;
-                _locationName = '${city ?? ''}, ${place.country ?? ''}'.trim();
-                if (_locationName.startsWith(',')) _locationName = _locationName.substring(1).trim();
-              } else {
-                _locationName = _manualLocationText;
+          bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+          if (serviceEnabled) {
+            LocationPermission permission = await Geolocator.checkPermission();
+            if (permission == LocationPermission.denied) {
+              permission = await Geolocator.requestPermission();
+            }
+            if (permission != LocationPermission.denied && permission != LocationPermission.deniedForever) {
+              final position = await Geolocator.getCurrentPosition();
+              latitude = position.latitude;
+              longitude = position.longitude;
+
+              try {
+                List<Placemark> placemarks = await Geocoding().placemarkFromCoordinates(latitude, longitude);
+                if (placemarks.isNotEmpty) {
+                  final place = placemarks.first;
+                  final city = place.locality?.isNotEmpty == true ? place.locality : place.subAdministrativeArea;
+                  _locationName = '${city ?? ''}, ${place.country ?? ''}'.trim();
+                  if (_locationName.startsWith(',')) _locationName = _locationName.substring(1).trim();
+                }
+              } catch (_) {
+                _locationName = 'إحداثيات: ${latitude.toStringAsFixed(2)}, ${longitude.toStringAsFixed(2)}';
               }
-            } catch (e) {
-              _locationName = _manualLocationText;
             }
           }
-        } catch (e) {
-          _errorMessage = 'لم يتم العثور على المدينة. يرجى التحقق من الاسم في الإعدادات.';
-          _isLoading = false;
-          notifyListeners();
-          return;
+        } catch (_) {}
+      } else {
+        // Manual Location
+        if (_manualLocationText.isNotEmpty) {
+          try {
+            List<Location> locations = await Geocoding().locationFromAddress(_manualLocationText);
+            if (locations.isNotEmpty) {
+              latitude = locations.first.latitude;
+              longitude = locations.first.longitude;
+              _locationName = _manualLocationText;
+            }
+          } catch (_) {}
         }
       }
 
+      // If latitude/longitude was retrieved, cache it for offline use!
+      if (latitude != null && longitude != null) {
+        await prefs.setDouble('cached_lat', latitude);
+        await prefs.setDouble('cached_lng', longitude);
+        await prefs.setString('cached_location_name', _locationName);
+      } else {
+        // Fallback to cached location if offline
+        latitude = prefs.getDouble('cached_lat');
+        longitude = prefs.getDouble('cached_lng');
+        _locationName = prefs.getString('cached_location_name') ?? 'موقع محفوظ محلياً';
+      }
+
       if (latitude == null || longitude == null) {
-        _errorMessage = 'لم يتم التمكن من تحديد الموقع.';
+        _errorMessage = 'لم يتم التمكن من تحديد الموقع. يرجى التوصيل بالإنترنت مرة واحدة لتحديد موقعك أو كتابة اسم مدينتك في الإعدادات.';
         _isLoading = false;
         notifyListeners();
         return;
@@ -261,38 +240,164 @@ class PrayerProvider with ChangeNotifier {
     if (_prayerTimes == null) return;
     
     final ns = NotificationService();
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 200; i++) {
       await ns.cancelNotification(i);
     }
-    
-    final prayers = [
-      {'id': 0, 'prayer': Prayer.fajr, 'name': 'الفجر', 'time': _prayerTimes!.fajr},
-      {'id': 1, 'prayer': Prayer.sunrise, 'name': 'الشروق', 'time': _prayerTimes!.sunrise},
-      {'id': 2, 'prayer': Prayer.dhuhr, 'name': 'الظهر', 'time': _prayerTimes!.dhuhr},
-      {'id': 3, 'prayer': Prayer.asr, 'name': 'العصر', 'time': _prayerTimes!.asr},
-      {'id': 4, 'prayer': Prayer.maghrib, 'name': 'المغرب', 'time': _prayerTimes!.maghrib},
-      {'id': 5, 'prayer': Prayer.isha, 'name': 'العشاء', 'time': _prayerTimes!.isha},
-    ];
 
-    for (var p in prayers) {
-      final prayerType = p['prayer'] as Prayer;
-      final isEnabled = prayerToggles[prayerType] ?? false;
-      final time = p['time'] as DateTime;
-      
-      if (isEnabled && time.isAfter(DateTime.now())) {
-        await ns.schedulePrayerNotification(
-          id: p['id'] as int,
-          title: 'حان الآن وقت صلاة ${p['name']}',
-          body: 'الصلاة خير من النوم',
-          scheduledTime: time,
-          soundName: _adhanSound,
+    final coords = _prayerTimes!.coordinates;
+    final params = _calculationMethod.getParameters();
+    params.madhab = Madhab.shafi;
+    final now = DateTime.now();
+
+    for (int dayOffset = 0; dayOffset < 7; dayOffset++) {
+      final targetDate = now.add(Duration(days: dayOffset));
+      final dateComp = DateComponents.from(targetDate);
+      final pTimes = PrayerTimes(coords, dateComp, params);
+
+      final prayers = [
+        {
+          'id': dayOffset * 10 + 0,
+          'prayer': Prayer.fajr,
+          'name': 'الفجر',
+          'time': pTimes.fajr,
+          'title': 'حان الآن وقت صلاة الفجر 🕌',
+          'hadith': 'قال ﷺ: «بَشِّرِ الْمَشَّائِينَ فِي الظُّلَمِ إِلَى الْمَسَاجِدِ بِالنُّورِ التَّامِّ يَوْمَ الْقِيَامَةِ» — قم لصلاة الجماعة.'
+        },
+        {
+          'id': dayOffset * 10 + 1,
+          'prayer': Prayer.sunrise,
+          'name': 'الشروق',
+          'time': pTimes.sunrise,
+          'title': 'وقت الإشراق ☀️',
+          'hadith': 'قال ﷺ: «مَنْ صَلَّى الْغَدَاةَ فِي جَمَاعَةٍ ثُمَّ قَعَدَ يَذْكُرُ اللَّهَ حَتَّى تَطْلُعَ الشَّمْسُ... كَانَتْ لَهُ كَأَجْرِ حَجَّةٍ وَعُمْرَةٍ»'
+        },
+        {
+          'id': dayOffset * 10 + 2,
+          'prayer': Prayer.dhuhr,
+          'name': 'الظهر',
+          'time': pTimes.dhuhr,
+          'title': 'حان الآن وقت صلاة الظهر 🕌',
+          'hadith': 'قال ﷺ: «صَلاَةُ الْجَمَاعَةِ تَفْضُلُ صَلاَةَ الْفَذِّ بِسَبْعٍ وَعِشْرِينَ دَرَجَةً» — لا تفوّت أجر الجماعة في المسجد.'
+        },
+        {
+          'id': dayOffset * 10 + 3,
+          'prayer': Prayer.asr,
+          'name': 'العصر',
+          'time': pTimes.asr,
+          'title': 'حان الآن وقت صلاة العصر 🕌',
+          'hadith': 'قال ﷺ: «مَنْ صَلَّى الْبَرَدَيْنِ دَخَلَ الْجَنَّةَ» — أسرِع لصلاة العصر مع الجماعة بالمسجد.'
+        },
+        {
+          'id': dayOffset * 10 + 4,
+          'prayer': Prayer.maghrib,
+          'name': 'المغرب',
+          'time': pTimes.maghrib,
+          'title': 'حان الآن وقت صلاة المغرب 🕌',
+          'hadith': 'قال ﷺ: «مَنْ غَدَا إِلَى الْمَسْجِدِ أَوْ رَاحَ أَعَدَّ اللَّهُ لَهُ نُزُلَهُ مِنَ الْجَنَّةِ كُلَّمَا غَدَا أَوْ رَاحَ»'
+        },
+        {
+          'id': dayOffset * 10 + 5,
+          'prayer': Prayer.isha,
+          'name': 'العشاء',
+          'time': pTimes.isha,
+          'title': 'حان الآن وقت صلاة العشاء 🕌',
+          'hadith': 'قال ﷺ: «مَنْ صَلَّى الْعِشَاءَ فِي جَمَاعَةٍ فَكَأَنَّمَا قَامَ نِصْفَ اللَّيْلِ» — أقبل إلى المسجد وثقِّل موازينك.'
+        },
+      ];
+
+      for (var p in prayers) {
+        final prayerType = p['prayer'] as Prayer;
+        final isEnabled = prayerToggles[prayerType] ?? false;
+        final time = p['time'] as DateTime;
+        
+        if (isEnabled && time.isAfter(now)) {
+          await ns.schedulePrayerNotification(
+            id: p['id'] as int,
+            title: p['title'] as String,
+            body: p['hadith'] as String,
+            scheduledTime: time,
+            soundName: _adhanSound,
+          );
+        }
+      }
+
+      // Schedule Azkar Reminders for each day:
+      // 1. Morning Azkar (25 mins after Sunrise)
+      final morningAzkarTime = pTimes.sunrise.add(const Duration(minutes: 25));
+      if (morningAzkarTime.isAfter(now)) {
+        await ns.scheduleAzkarNotification(
+          id: 100 + dayOffset * 3 + 0,
+          title: '☀️ حان وقت أذكار الصباح والتحصين',
+          body: 'قال تعالى: «أَلا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ» — ابدأ يومك بالبركة والحفظ التام.',
+          scheduledTime: morningAzkarTime,
+        );
+      }
+
+      // 2. Evening Azkar (30 mins after Asr)
+      final eveningAzkarTime = pTimes.asr.add(const Duration(minutes: 30));
+      if (eveningAzkarTime.isAfter(now)) {
+        await ns.scheduleAzkarNotification(
+          id: 100 + dayOffset * 3 + 1,
+          title: '🌆 حان وقت أذكار المساء',
+          body: 'حصّن نفسك وأهلك بورد أذكار المساء المأثورة عن النبي ﷺ لتبدو في حفظ الله حتى تصبح.',
+          scheduledTime: eveningAzkarTime,
+        );
+      }
+
+      // 3. Bedtime Azkar (1 hour after Isha / 10 PM)
+      final sleepAzkarTime = pTimes.isha.add(const Duration(hours: 1));
+      if (sleepAzkarTime.isAfter(now)) {
+        await ns.scheduleAzkarNotification(
+          id: 100 + dayOffset * 3 + 2,
+          title: '🌙 أذكار النوم والتحصين قبل النوم',
+          body: 'اقرأ آية الكرسي والمُعوّذتين وسورة الإخلاص قبل نومك لتكون في رعاية الله وحفظه.',
+          scheduledTime: sleepAzkarTime,
         );
       }
     }
   }
 
   String formatTime(DateTime time) {
-    return DateFormat.jm().format(time);
+    return DateFormat.jm('ar').format(time);
+  }
+
+  String formatTimeWithAmPm(DateTime time, {String locale = 'ar'}) {
+    try {
+      return DateFormat('h:mm a', locale).format(time);
+    } catch (_) {
+      return DateFormat('h:mm a').format(time);
+    }
+  }
+  
+  Prayer get currentPrayer {
+    if (_prayerTimes == null) return Prayer.none;
+    return _prayerTimes!.currentPrayer();
+  }
+
+  Prayer get nextPrayer {
+    if (_prayerTimes == null) return Prayer.fajr;
+    final next = _prayerTimes!.nextPrayer();
+    return next == Prayer.none ? Prayer.fajr : next;
+  }
+
+  String get formattedCountdownShort {
+    final hours = timeUntilNextPrayer.inHours;
+    final mins = timeUntilNextPrayer.inMinutes.remainder(60);
+    if (hours > 0) {
+      return '$hours hours ${mins}m left';
+    } else {
+      return '${mins}m left';
+    }
+  }
+
+  String get formattedCountdownArabic {
+    final hours = timeUntilNextPrayer.inHours;
+    final mins = timeUntilNextPrayer.inMinutes.remainder(60);
+    if (hours > 0) {
+      return 'متبقي $hours ساعة و $mins دقيقة';
+    } else {
+      return 'متبقي $mins دقيقة';
+    }
   }
   
   String get formattedCountdown {

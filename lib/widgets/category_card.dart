@@ -11,74 +11,57 @@ class CategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CategoryScreen(category: category),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.menu_book_rounded,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      category.title,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      category.description,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              Consumer<AzkarProvider>(
-                builder: (context, provider, child) {
-                  final isFav = provider.isFavoriteCategory(category.id);
-                  return IconButton(
-                    icon: Icon(
-                      isFav ? Icons.favorite : Icons.favorite_border,
-                      color: isFav ? Colors.red : Colors.grey[400],
-                    ),
-                    onPressed: () {
-                      provider.toggleFavoriteCategory(category.id);
-                    },
-                  );
-                },
-              ),
-            ],
+    final provider = Provider.of<AzkarProvider>(context);
+    const primaryColor = Color(0xFF1E3A37);
+
+    return FutureBuilder<bool>(
+      future: provider.isCategoryCompletedToday(category),
+      builder: (context, snapshot) {
+        final bool isCompleted = snapshot.data ?? false;
+
+        final Color cardBgColor = isCompleted
+            ? const Color(0xFFE8F5E9) // Soft light green background when completed
+            : Colors.white;
+
+        return Card(
+          elevation: isCompleted ? 1 : 2,
+          margin: EdgeInsets.zero,
+          color: cardBgColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: isCompleted
+                ? const BorderSide(color: Color(0xFF2E7D32), width: 1.5)
+                : BorderSide(color: Colors.grey[200]!, width: 1),
           ),
-        ),
-      ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CategoryScreen(category: category),
+                ),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+              child: Center(
+                child: Text(
+                  category.title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: isCompleted ? const Color(0xFF1B5E20) : primaryColor,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

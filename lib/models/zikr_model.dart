@@ -3,12 +3,14 @@ class ZikrItem {
   final String arabic;
   final String translation;
   final int count;
+  final List<int>? countOptions;
 
   ZikrItem({
     required this.id,
     required this.arabic,
     required this.translation,
     required this.count,
+    this.countOptions,
   });
 
   factory ZikrItem.fromJson(Map<String, dynamic> json) {
@@ -17,6 +19,9 @@ class ZikrItem {
       arabic: json['arabic'],
       translation: json['translation'],
       count: json['count'],
+      countOptions: json['countOptions'] != null
+          ? List<int>.from(json['countOptions'])
+          : null,
     );
   }
 }

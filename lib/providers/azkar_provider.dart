@@ -13,15 +13,20 @@ class AzkarProvider with ChangeNotifier {
   String _errorMessage = '';
   
   Set<String> _favoriteCategoryIds = {};
+  Set<String> _favoriteZikrIds = {};
   
   int _totalAzkarRead = 0;
   User? _currentUser;
+
+  double _fontSize = 22.0;
 
   List<AzkarCategory> get categories => _categories;
   bool get isLoading => _isLoading;
   String get errorMessage => _errorMessage;
   int get totalAzkarRead => _totalAzkarRead;
   Set<String> get favoriteCategoryIds => _favoriteCategoryIds;
+  Set<String> get favoriteZikrIds => _favoriteZikrIds;
+  double get fontSize => _fontSize;
 
   AzkarProvider() {
     _loadAzkarData();
@@ -46,13 +51,23 @@ class AzkarProvider with ChangeNotifier {
 
   Future<void> _loadLocalGuestStatistics() async {
     final prefs = await SharedPreferences.getInstance();
-    // Start with guest total if available, otherwise fallback to old totalAzkarRead, or 0
     _totalAzkarRead = prefs.getInt('guestTotalAzkarRead') ?? prefs.getInt('totalAzkarRead') ?? 0;
+    _fontSize = prefs.getDouble('azkar_font_size') ?? 22.0;
     
     final favList = prefs.getStringList('favoriteCategoryIds') ?? [];
     _favoriteCategoryIds = favList.toSet();
+
+    final zikrFavList = prefs.getStringList('favoriteZikrIds') ?? [];
+    _favoriteZikrIds = zikrFavList.toSet();
     
     notifyListeners();
+  }
+
+  Future<void> setFontSize(double size) async {
+    _fontSize = size;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('azkar_font_size', size);
   }
 
   Future<void> _syncWithFirestore(bool wasGuest) async {
@@ -136,5 +151,52 @@ class AzkarProvider with ChangeNotifier {
 
   List<AzkarCategory> getFavoriteCategories() {
     return _categories.where((cat) => _favoriteCategoryIds.contains(cat.id)).toList();
+  }
+
+  Future<void> toggleFavoriteZikr(String zikrId) async {
+    if (_favoriteZikrIds.contains(zikrId)) {
+      _favoriteZikrIds.remove(zikrId);
+    } else {
+      _favoriteZikrIds.add(zikrId);
+    }
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('favoriteZikrIds', _favoriteZikrIds.toList());
+
+    if (_currentUser != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(_currentUser!.uid)
+            .set({'favoriteZikrIds': _favoriteZikrIds.toList()}, SetOptions(merge: true));
+      } catch (_) {}
+    }
+  }
+
+  bool isFavoriteZikr(String zikrId) => _favoriteZikrIds.contains(zikrId);
+
+  List<ZikrItem> getFavoriteZikrItems() {
+    final List<ZikrItem> list = [];
+    for (var cat in _categories) {
+      for (var item in cat.items) {
+        if (_favoriteZikrIds.contains(item.id)) {
+          list.add(item);
+        }
+      }
+    }
+    return list;
+  }
+
+  Future<bool> isCategoryCompletedToday(AzkarCategory category) async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+
+    for (var item in category.items) {
+      final savedDate = prefs.getString('zikr_date_${item.id}');
+      if (savedDate != today) return false;
+      final savedCount = prefs.getInt('zikr_${item.id}');
+      if (savedCount == null || savedCount > 0) return false;
+    }
+    return true;
   }
 }

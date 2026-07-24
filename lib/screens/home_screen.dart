@@ -1,20 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/zikr_model.dart';
 import '../providers/azkar_provider.dart';
 import '../widgets/category_card.dart';
+import '../widgets/streak_card_widget.dart';
+import 'other_azkar_screen.dart';
 import 'settings_screen.dart';
 import 'forty_days_screen.dart';
 import 'favorites_screen.dart';
 import 'qibla_screen.dart';
+import 'tasbeeh_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    const primaryColor = Color(0xFF1E3A37);
+
     return Scaffold(
+      backgroundColor: const Color(0xFFF6FAF9),
       appBar: AppBar(
-        title: const Text('الأذكار', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('أذكار المسلم', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -30,25 +39,92 @@ class HomeScreen extends StatelessWidget {
       body: Consumer<AzkarProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: primaryColor));
           }
 
           if (provider.categories.isEmpty) {
-            return const Center(child: Text('No Azkar categories found.'));
+            return const Center(child: Text('لم يتم العثور على أذكار.'));
           }
 
-          return ListView.builder(
+          const int mainDisplayCount = 7;
+          final bool hasMore = provider.categories.length > mainDisplayCount;
+          final mainCategories = hasMore
+              ? provider.categories.sublist(0, mainDisplayCount)
+              : provider.categories;
+          final remainingCategories = hasMore
+              ? provider.categories.sublist(mainDisplayCount)
+              : <AzkarCategory>[];
+
+          final int gridItemCount = mainCategories.length + (hasMore ? 1 : 0);
+
+          return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
-            itemCount: provider.categories.length + 1,
-            itemBuilder: (context, index) {
-              if (index == 0) {
-                return _buildQuickActions(context);
-              }
-              final category = provider.categories[index - 1];
-              return CategoryCard(category: category);
-            },
+            child: Column(
+              children: [
+                _buildQuickActions(context),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 2.2,
+                  ),
+                  itemCount: gridItemCount,
+                  itemBuilder: (context, index) {
+                    if (hasMore && index == mainCategories.length) {
+                      return _buildOtherCategoriesCard(context, remainingCategories);
+                    }
+                    final category = mainCategories[index];
+                    return CategoryCard(category: category);
+                  },
+                ),
+              ],
+            ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildOtherCategoriesCard(BuildContext context, List<AzkarCategory> remainingCategories) {
+    return Card(
+      elevation: 2,
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OtherAzkarScreen(otherCategories: remainingCategories),
+            ),
+          );
+        },
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'أخرى',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Color(0xFF1E3A37),
+                ),
+              ),
+              SizedBox(width: 6),
+              Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF1E3A37)),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -56,35 +132,54 @@ class HomeScreen extends StatelessWidget {
   Widget _buildQuickActions(BuildContext context) {
     return Column(
       children: [
+        // STREAK & HABIT TRACKER CARD (🔥)
+        const StreakCardWidget(),
+        const SizedBox(height: 16),
+
         _buildFortyDaysCard(context),
+        const SizedBox(height: 12),
+
+        // Action Cards Row (المسبحة الذكية | القبلة | المفضلة)
         Row(
           children: [
-            Expanded(child: _buildActionCard(context, 'القبلة', Icons.explore, const QiblaScreen())),
-            const SizedBox(width: 16),
-            Expanded(child: _buildActionCard(context, 'المفضلة', Icons.favorite, const FavoritesScreen())),
+            Expanded(child: _buildActionCard(context, 'المسبحة الذكية', Icons.touch_app_rounded, const TasbeehScreen())),
+            const SizedBox(width: 10),
+            Expanded(child: _buildActionCard(context, 'القبلة', Icons.explore_outlined, const QiblaScreen())),
+            const SizedBox(width: 10),
+            Expanded(child: _buildActionCard(context, 'المفضلة', Icons.favorite_border_rounded, const FavoritesScreen())),
           ],
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
       ],
     );
   }
 
   Widget _buildActionCard(BuildContext context, String title, IconData icon, Widget screen) {
+    const primaryColor = Color(0xFF1E3A37);
+
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 1.5,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
           Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
           child: Column(
             children: [
-              Icon(icon, size: 40, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(height: 12),
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Icon(icon, size: 26, color: primaryColor),
+              const SizedBox(height: 6),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: primaryColor),
+              ),
             ],
           ),
         ),
@@ -93,11 +188,16 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildFortyDaysCard(BuildContext context) {
+    const primaryColor = Color(0xFF1E3A37);
+
     return Card(
-      elevation: 4,
-      margin: const EdgeInsets.only(bottom: 16),
-      color: Theme.of(context).colorScheme.primaryContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 2,
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: primaryColor.withValues(alpha: 0.2)),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
@@ -107,44 +207,46 @@ class HomeScreen extends StatelessWidget {
           );
         },
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
+                padding: const EdgeInsets.all(10),
+                decoration: const BoxDecoration(
+                  color: primaryColor,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.emoji_events,
-                  color: Colors.white,
-                  size: 32,
+                  color: Color(0xFFFFD700),
+                  size: 26,
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
+              const SizedBox(width: 14),
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'مشروع 40 يوم',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onPrimaryContainer,
-                          ),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: primaryColor,
+                      ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 2),
                     Text(
                       'إدراك التكبيرة الأولى في جماعة',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
-                          ),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey,
+                      ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.primary),
+              const Icon(Icons.arrow_forward_ios_rounded, color: primaryColor, size: 16),
             ],
           ),
         ),
