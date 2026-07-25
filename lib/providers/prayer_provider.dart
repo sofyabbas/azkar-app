@@ -21,6 +21,8 @@ class PrayerProvider with ChangeNotifier {
 
   Timer? _timer;
   Duration timeUntilNextPrayer = Duration.zero;
+  bool _isScheduling = false;
+  bool _needsReschedule = false;
 
   final Map<Prayer, bool> prayerToggles = {
     Prayer.fajr: true,
@@ -79,15 +81,46 @@ class PrayerProvider with ChangeNotifier {
 
   Future<void> _initPrayerTimes() async {
     try {
-      _isLoading = true;
-      notifyListeners();
-
+      final prefs = await SharedPreferences.getInstance();
       await _loadSettings();
+
+      double? cachedLat = prefs.getDouble('cached_lat');
+      double? cachedLng = prefs.getDouble('cached_lng');
+      String? cachedLocName = prefs.getString('cached_location_name');
+
+      bool useCache = false;
+      if (cachedLat != null && cachedLng != null) {
+        if (_isAutomaticLocation) {
+          useCache = true;
+        } else {
+          if (_manualLocationText.trim().toLowerCase() == (cachedLocName ?? '').trim().toLowerCase()) {
+            useCache = true;
+          }
+        }
+      }
+
+      if (useCache) {
+        _locationName = cachedLocName ?? 'موقع محفوظ محلياً';
+        final coordinates = Coordinates(cachedLat!, cachedLng!);
+        final params = _calculationMethod.getParameters();
+        params.madhab = Madhab.shafi;
+        
+        final date = DateComponents.from(DateTime.now());
+        _prayerTimes = PrayerTimes(coordinates, date, params);
+        _errorMessage = '';
+        _isLoading = false;
+        notifyListeners();
+        
+        _startCountdownTimer();
+        _scheduleNotifications();
+      } else {
+        _isLoading = true;
+        notifyListeners();
+      }
 
       double? latitude;
       double? longitude;
-
-      final prefs = await SharedPreferences.getInstance();
+      String? freshLocationName;
 
       if (_isAutomaticLocation) {
         try {
@@ -98,20 +131,34 @@ class PrayerProvider with ChangeNotifier {
               permission = await Geolocator.requestPermission();
             }
             if (permission != LocationPermission.denied && permission != LocationPermission.deniedForever) {
-              final position = await Geolocator.getCurrentPosition();
+              final position = await Geolocator.getCurrentPosition(
+                locationSettings: const LocationSettings(
+                  accuracy: LocationAccuracy.low,
+                  timeLimit: Duration(seconds: 4),
+                ),
+              );
               latitude = position.latitude;
               longitude = position.longitude;
 
               try {
-                List<Placemark> placemarks = await Geocoding().placemarkFromCoordinates(latitude, longitude);
+                List<Placemark> placemarks = await Geocoding()
+                    .placemarkFromCoordinates(latitude, longitude)
+                    .timeout(const Duration(seconds: 3));
                 if (placemarks.isNotEmpty) {
                   final place = placemarks.first;
                   final city = place.locality?.isNotEmpty == true ? place.locality : place.subAdministrativeArea;
-                  _locationName = '${city ?? ''}, ${place.country ?? ''}'.trim();
-                  if (_locationName.startsWith(',')) _locationName = _locationName.substring(1).trim();
+                  freshLocationName = '${city ?? ''}, ${place.country ?? ''}'.trim();
+                  if (freshLocationName.startsWith(',')) freshLocationName = freshLocationName.substring(1).trim();
                 }
               } catch (_) {
-                _locationName = 'إحداثيات: ${latitude.toStringAsFixed(2)}, ${longitude.toStringAsFixed(2)}';
+                if (cachedLat != null && cachedLng != null && cachedLocName != null) {
+                  final double latDiff = (latitude - cachedLat).abs();
+                  final double lngDiff = (longitude - cachedLng).abs();
+                  if (latDiff < 0.15 && lngDiff < 0.15) {
+                    freshLocationName = cachedLocName;
+                  }
+                }
+                freshLocationName ??= 'إحداثيات: ${latitude.toStringAsFixed(2)}, ${longitude.toStringAsFixed(2)}';
               }
             }
           }
@@ -120,52 +167,44 @@ class PrayerProvider with ChangeNotifier {
         // Manual Location
         if (_manualLocationText.isNotEmpty) {
           try {
-            List<Location> locations = await Geocoding().locationFromAddress(_manualLocationText);
+            List<Location> locations = await Geocoding()
+                .locationFromAddress(_manualLocationText)
+                .timeout(const Duration(seconds: 4));
             if (locations.isNotEmpty) {
               latitude = locations.first.latitude;
               longitude = locations.first.longitude;
-              _locationName = _manualLocationText;
+              freshLocationName = _manualLocationText;
             }
           } catch (_) {}
         }
       }
 
-      // If latitude/longitude was retrieved, cache it for offline use!
       if (latitude != null && longitude != null) {
+        _locationName = freshLocationName ?? 'موقع غير معروف';
         await prefs.setDouble('cached_lat', latitude);
         await prefs.setDouble('cached_lng', longitude);
         await prefs.setString('cached_location_name', _locationName);
+
+        final coordinates = Coordinates(latitude, longitude);
+        final params = _calculationMethod.getParameters();
+        params.madhab = Madhab.shafi;
+        
+        final date = DateComponents.from(DateTime.now());
+        _prayerTimes = PrayerTimes(coordinates, date, params);
+        _errorMessage = '';
+        
+        _startCountdownTimer();
+        _scheduleNotifications();
       } else {
-        // Fallback to cached location if offline
-        latitude = prefs.getDouble('cached_lat');
-        longitude = prefs.getDouble('cached_lng');
-        _locationName = prefs.getString('cached_location_name') ?? 'موقع محفوظ محلياً';
+        if (_prayerTimes == null) {
+          _errorMessage = 'لم يتم التمكن من تحديد الموقع. يرجى التوصيل بالإنترنت مرة واحدة لتحديد موقعك أو كتابة اسم مدينتك في الإعدادات.';
+        }
       }
-
-      if (latitude == null || longitude == null) {
-        _errorMessage = 'لم يتم التمكن من تحديد الموقع. يرجى التوصيل بالإنترنت مرة واحدة لتحديد موقعك أو كتابة اسم مدينتك في الإعدادات.';
-        _isLoading = false;
-        notifyListeners();
-        return;
-      }
-      
-      if (_locationName.isEmpty) {
-        _locationName = 'موقع غير معروف';
-      }
-
-      final coordinates = Coordinates(latitude, longitude);
-      final params = _calculationMethod.getParameters();
-      params.madhab = Madhab.shafi;
-      
-      final date = DateComponents.from(DateTime.now());
-      _prayerTimes = PrayerTimes(coordinates, date, params);
-      _errorMessage = '';
-      
-      _startCountdownTimer();
-      await _scheduleNotifications();
       
     } catch (e) {
-      _errorMessage = 'حدث خطأ أثناء جلب مواقيت الصلاة: $e';
+      if (_prayerTimes == null) {
+        _errorMessage = 'حدث خطأ أثناء جلب مواقيت الصلاة: $e';
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -233,126 +272,165 @@ class PrayerProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('prayer_${prayer.name}', prayerToggles[prayer]!);
     notifyListeners();
-    await _scheduleNotifications();
+    _scheduleNotifications();
   }
 
   Future<void> _scheduleNotifications() async {
     if (_prayerTimes == null) return;
     
-    final ns = NotificationService();
-    for (int i = 0; i < 200; i++) {
-      await ns.cancelNotification(i);
+    if (_isScheduling) {
+      _needsReschedule = true;
+      return;
     }
+    _isScheduling = true;
+    _needsReschedule = false;
 
-    final coords = _prayerTimes!.coordinates;
-    final params = _calculationMethod.getParameters();
-    params.madhab = Madhab.shafi;
-    final now = DateTime.now();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ns = NotificationService();
+      await ns.cancelAllNotifications();
 
-    for (int dayOffset = 0; dayOffset < 7; dayOffset++) {
-      final targetDate = now.add(Duration(days: dayOffset));
-      final dateComp = DateComponents.from(targetDate);
-      final pTimes = PrayerTimes(coords, dateComp, params);
+      final coords = _prayerTimes!.coordinates;
+      final params = _calculationMethod.getParameters();
+      params.madhab = Madhab.shafi;
+      final now = DateTime.now();
 
-      final prayers = [
-        {
-          'id': dayOffset * 10 + 0,
-          'prayer': Prayer.fajr,
-          'name': 'الفجر',
-          'time': pTimes.fajr,
-          'title': 'حان الآن وقت صلاة الفجر 🕌',
-          'hadith': 'قال ﷺ: «بَشِّرِ الْمَشَّائِينَ فِي الظُّلَمِ إِلَى الْمَسَاجِدِ بِالنُّورِ التَّامِّ يَوْمَ الْقِيَامَةِ» — قم لصلاة الجماعة.'
-        },
-        {
-          'id': dayOffset * 10 + 1,
-          'prayer': Prayer.sunrise,
-          'name': 'الشروق',
-          'time': pTimes.sunrise,
-          'title': 'وقت الإشراق ☀️',
-          'hadith': 'قال ﷺ: «مَنْ صَلَّى الْغَدَاةَ فِي جَمَاعَةٍ ثُمَّ قَعَدَ يَذْكُرُ اللَّهَ حَتَّى تَطْلُعَ الشَّمْسُ... كَانَتْ لَهُ كَأَجْرِ حَجَّةٍ وَعُمْرَةٍ»'
-        },
-        {
-          'id': dayOffset * 10 + 2,
-          'prayer': Prayer.dhuhr,
-          'name': 'الظهر',
-          'time': pTimes.dhuhr,
-          'title': 'حان الآن وقت صلاة الظهر 🕌',
-          'hadith': 'قال ﷺ: «صَلاَةُ الْجَمَاعَةِ تَفْضُلُ صَلاَةَ الْفَذِّ بِسَبْعٍ وَعِشْرِينَ دَرَجَةً» — لا تفوّت أجر الجماعة في المسجد.'
-        },
-        {
-          'id': dayOffset * 10 + 3,
-          'prayer': Prayer.asr,
-          'name': 'العصر',
-          'time': pTimes.asr,
-          'title': 'حان الآن وقت صلاة العصر 🕌',
-          'hadith': 'قال ﷺ: «مَنْ صَلَّى الْبَرَدَيْنِ دَخَلَ الْجَنَّةَ» — أسرِع لصلاة العصر مع الجماعة بالمسجد.'
-        },
-        {
-          'id': dayOffset * 10 + 4,
-          'prayer': Prayer.maghrib,
-          'name': 'المغرب',
-          'time': pTimes.maghrib,
-          'title': 'حان الآن وقت صلاة المغرب 🕌',
-          'hadith': 'قال ﷺ: «مَنْ غَدَا إِلَى الْمَسْجِدِ أَوْ رَاحَ أَعَدَّ اللَّهُ لَهُ نُزُلَهُ مِنَ الْجَنَّةِ كُلَّمَا غَدَا أَوْ رَاحَ»'
-        },
-        {
-          'id': dayOffset * 10 + 5,
-          'prayer': Prayer.isha,
-          'name': 'العشاء',
-          'time': pTimes.isha,
-          'title': 'حان الآن وقت صلاة العشاء 🕌',
-          'hadith': 'قال ﷺ: «مَنْ صَلَّى الْعِشَاءَ فِي جَمَاعَةٍ فَكَأَنَّمَا قَامَ نِصْفَ اللَّيْلِ» — أقبل إلى المسجد وثقِّل موازينك.'
-        },
-      ];
+      for (int dayOffset = 0; dayOffset < 7; dayOffset++) {
+        final targetDate = now.add(Duration(days: dayOffset));
+        final dateComp = DateComponents.from(targetDate);
+        final pTimes = PrayerTimes(coords, dateComp, params);
 
-      for (var p in prayers) {
-        final prayerType = p['prayer'] as Prayer;
-        final isEnabled = prayerToggles[prayerType] ?? false;
-        final time = p['time'] as DateTime;
-        
-        if (isEnabled && time.isAfter(now)) {
-          await ns.schedulePrayerNotification(
-            id: p['id'] as int,
-            title: p['title'] as String,
-            body: p['hadith'] as String,
-            scheduledTime: time,
-            soundName: _adhanSound,
+        final prayers = [
+          {
+            'id': dayOffset * 10 + 0,
+            'prayer': Prayer.fajr,
+            'name': 'الفجر',
+            'time': pTimes.fajr,
+            'title': 'حان الآن وقت صلاة الفجر 🕌',
+            'hadith': 'قال ﷺ: «بَشِّرِ الْمَشَّائِينَ فِي الظُّلَمِ إِلَى الْمَسَاجِدِ بِالنُّورِ التَّامِّ يَوْمَ الْقِيَامَةِ» — قم لصلاة الجماعة.'
+          },
+          {
+            'id': dayOffset * 10 + 1,
+            'prayer': Prayer.sunrise,
+            'name': 'الشروق',
+            'time': pTimes.sunrise,
+            'title': 'وقت الإشراق ☀️',
+            'hadith': 'قال ﷺ: «مَنْ صَلَّى الْغَدَاةَ فِي جَمَاعَةٍ ثُمَّ قَعَدَ يَذْكُرُ اللَّهَ حَتَّى تَطْلُعَ الشَّمْسُ... كَانَتْ لَهُ كَأَجْرِ حَجَّةٍ وَعُمْرَةٍ»'
+          },
+          {
+            'id': dayOffset * 10 + 2,
+            'prayer': Prayer.dhuhr,
+            'name': 'الظهر',
+            'time': pTimes.dhuhr,
+            'title': 'حان الآن وقت صلاة الظهر 🕌',
+            'hadith': 'قال ﷺ: «صَلاَةُ الْجَمَاعَةِ تَفْضُلُ صَلاَةَ الْفَذِّ بِسَبْعٍ وَعِشْرِينَ دَرَجَةً» — لا تفوّت أجر الجماعة في المسجد.'
+          },
+          {
+            'id': dayOffset * 10 + 3,
+            'prayer': Prayer.asr,
+            'name': 'العصر',
+            'time': pTimes.asr,
+            'title': 'حان الآن وقت صلاة العصر 🕌',
+            'hadith': 'قال ﷺ: «مَنْ صَلَّى الْبَرَدَيْنِ دَخَلَ الْجَنَّةَ» — أسرِع لصلاة العصر مع الجماعة بالمسجد.'
+          },
+          {
+            'id': dayOffset * 10 + 4,
+            'prayer': Prayer.maghrib,
+            'name': 'المغرب',
+            'time': pTimes.maghrib,
+            'title': 'حان الآن وقت صلاة المغرب 🕌',
+            'hadith': 'قال ﷺ: «مَنْ غَدَا إِلَى الْمَسْجِدِ أَوْ رَاحَ أَعَدَّ اللَّهُ لَهُ نُزُلَهُ مِنَ الْجَنَّةِ كُلَّمَا غَدَا أَوْ رَاحَ»'
+          },
+          {
+            'id': dayOffset * 10 + 5,
+            'prayer': Prayer.isha,
+            'name': 'العشاء',
+            'time': pTimes.isha,
+            'title': 'حان الآن وقت صلاة العشاء 🕌',
+            'hadith': 'قال ﷺ: «مَنْ صَلَّى الْعِشَاءَ فِي جَمَأعَةٍ فَكَأَنَّمَا قَامَ نِصْفَ اللَّيْلِ» — أقبل إلى المسجد وثقِّل موازينك.'
+          },
+        ];
+
+        for (var p in prayers) {
+          final prayerType = p['prayer'] as Prayer;
+          final isEnabled = prayerToggles[prayerType] ?? false;
+          final time = p['time'] as DateTime;
+          
+          if (isEnabled && time.isAfter(now)) {
+            await ns.schedulePrayerNotification(
+              id: p['id'] as int,
+              title: p['title'] as String,
+              body: p['hadith'] as String,
+              scheduledTime: time,
+              soundName: _adhanSound,
+            );
+          }
+        }
+
+        // Schedule Forty Days Pre-Prayer Reminders (15 mins before)
+        final fortyDaysReminders = prefs.getBool('fortyDaysReminders') ?? true;
+        if (fortyDaysReminders) {
+          final prayersList = [
+            {'name': 'الفجر', 'time': pTimes.fajr},
+            {'name': 'الظهر', 'time': pTimes.dhuhr},
+            {'name': 'العصر', 'time': pTimes.asr},
+            {'name': 'المغرب', 'time': pTimes.maghrib},
+            {'name': 'العشاء', 'time': pTimes.isha},
+          ];
+          
+          for (int i = 0; i < prayersList.length; i++) {
+            final p = prayersList[i];
+            final pTime = p['time'] as DateTime;
+            final reminderTime = pTime.subtract(const Duration(minutes: 15));
+            if (reminderTime.isAfter(now)) {
+              await ns.scheduleAzkarNotification(
+                id: 200 + dayOffset * 10 + i,
+                title: 'تأهب لصلاة ${p['name']} جماعة 🕌',
+                body: 'متبقي 15 دقيقة على الأذان. استعد للذهاب للمسجد لإدراك تكبيرة الإحرام والفوز بتحدي الأربعين يوماً!',
+                scheduledTime: reminderTime,
+              );
+            }
+          }
+        }
+
+        // Schedule Azkar Reminders for each day:
+        // 1. Morning Azkar (25 mins after Sunrise)
+        final morningAzkarTime = pTimes.sunrise.add(const Duration(minutes: 25));
+        if (morningAzkarTime.isAfter(now)) {
+          await ns.scheduleAzkarNotification(
+            id: 100 + dayOffset * 3 + 0,
+            title: '☀️ حان وقت أذكار الصباح والتحصين',
+            body: 'قال تعالى: «أَلا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ» — ابدأ يومك بالبركة والحفظ التام.',
+            scheduledTime: morningAzkarTime,
+          );
+        }
+
+        // 2. Evening Azkar (30 mins after Asr)
+        final eveningAzkarTime = pTimes.asr.add(const Duration(minutes: 30));
+        if (eveningAzkarTime.isAfter(now)) {
+          await ns.scheduleAzkarNotification(
+            id: 100 + dayOffset * 3 + 1,
+            title: '🌆 حان وقت أذكار المساء',
+            body: 'حصّن نفسك وأهلك بورد أذكار المساء المأثورة عن النبي ﷺ لتبدو في حفظ الله حتى تصبح.',
+            scheduledTime: eveningAzkarTime,
+          );
+        }
+
+        // 3. Bedtime Azkar (1 hour after Isha / 10 PM)
+        final sleepAzkarTime = pTimes.isha.add(const Duration(hours: 1));
+        if (sleepAzkarTime.isAfter(now)) {
+          await ns.scheduleAzkarNotification(
+            id: 100 + dayOffset * 3 + 2,
+            title: '🌙 أذكار النوم والتحصين قبل النوم',
+            body: 'اقرأ آية الكرسي والمُعوّذتين وسورة الإخلاص قبل نومك لتكون في رعاية الله وحفظه.',
+            scheduledTime: sleepAzkarTime,
           );
         }
       }
-
-      // Schedule Azkar Reminders for each day:
-      // 1. Morning Azkar (25 mins after Sunrise)
-      final morningAzkarTime = pTimes.sunrise.add(const Duration(minutes: 25));
-      if (morningAzkarTime.isAfter(now)) {
-        await ns.scheduleAzkarNotification(
-          id: 100 + dayOffset * 3 + 0,
-          title: '☀️ حان وقت أذكار الصباح والتحصين',
-          body: 'قال تعالى: «أَلا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ» — ابدأ يومك بالبركة والحفظ التام.',
-          scheduledTime: morningAzkarTime,
-        );
-      }
-
-      // 2. Evening Azkar (30 mins after Asr)
-      final eveningAzkarTime = pTimes.asr.add(const Duration(minutes: 30));
-      if (eveningAzkarTime.isAfter(now)) {
-        await ns.scheduleAzkarNotification(
-          id: 100 + dayOffset * 3 + 1,
-          title: '🌆 حان وقت أذكار المساء',
-          body: 'حصّن نفسك وأهلك بورد أذكار المساء المأثورة عن النبي ﷺ لتبدو في حفظ الله حتى تصبح.',
-          scheduledTime: eveningAzkarTime,
-        );
-      }
-
-      // 3. Bedtime Azkar (1 hour after Isha / 10 PM)
-      final sleepAzkarTime = pTimes.isha.add(const Duration(hours: 1));
-      if (sleepAzkarTime.isAfter(now)) {
-        await ns.scheduleAzkarNotification(
-          id: 100 + dayOffset * 3 + 2,
-          title: '🌙 أذكار النوم والتحصين قبل النوم',
-          body: 'اقرأ آية الكرسي والمُعوّذتين وسورة الإخلاص قبل نومك لتكون في رعاية الله وحفظه.',
-          scheduledTime: sleepAzkarTime,
-        );
+    } finally {
+      _isScheduling = false;
+      if (_needsReschedule) {
+        _scheduleNotifications();
       }
     }
   }

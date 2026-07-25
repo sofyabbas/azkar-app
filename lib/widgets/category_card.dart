@@ -50,7 +50,7 @@ class CategoryCard extends StatelessWidget {
                   category.title,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontSize: 14,
                     color: isCompleted ? const Color(0xFF1B5E20) : primaryColor,
                   ),
                   textAlign: TextAlign.center,

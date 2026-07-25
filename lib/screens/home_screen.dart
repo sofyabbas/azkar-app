@@ -69,7 +69,7 @@ class HomeScreen extends StatelessWidget {
                     crossAxisCount: 2,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: 2.2,
+                    childAspectRatio: 1.9,
                   ),
                   itemCount: gridItemCount,
                   itemBuilder: (context, index) {

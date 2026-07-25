@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
@@ -42,6 +43,10 @@ class StatsProvider with ChangeNotifier {
 
   Map<String, CategoryStat> _categoryStats = {};
 
+  User? _currentUser;
+  bool _hasLoadedAsGuest = false;
+  StreamSubscription<User?>? _authSubscription;
+
   int get totalAzkarCount => _dailyAzkarCount + _fortyDaysCount;
   int get dailyAzkarCount => _dailyAzkarCount;
   int get fortyDaysCount => _fortyDaysCount;
@@ -65,6 +70,7 @@ class StatsProvider with ChangeNotifier {
 
   StatsProvider() {
     _loadStats();
+    _setupAuthListener();
   }
 
   Future<void> _loadStats() async {
@@ -255,7 +261,172 @@ class StatsProvider with ChangeNotifier {
     await prefs.remove('stats_activeDates');
     await prefs.remove('stats_categoryStats');
 
+    // Also reset stats on cloud if user is logged in
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'totalAzkarCount': 0,
+          'dailyAzkarCount': 0,
+          'fortyDaysCount': 0,
+          'totalTimeSeconds': 0,
+          'currentStreak': 0,
+          'longestStreak': 0,
+          'lastActiveDate': '',
+          'activeDates': [],
+          'categoryStats': {},
+        }, SetOptions(merge: true));
+      } catch (e) {
+        debugPrint("Error resetting Firestore stats: $e");
+      }
+    }
+
     notifyListeners();
+  }
+
+  void resetLocalStatsInMemory() {
+    _dailyAzkarCount = 0;
+    _fortyDaysCount = 0;
+    _totalTimeSeconds = 0;
+    _currentStreak = 0;
+    _longestStreak = 0;
+    _lastActiveDate = '';
+    _activeDates.clear();
+    _categoryStats.clear();
+    notifyListeners();
+  }
+
+  Future<void> resetLocalStats() async {
+    resetLocalStatsInMemory();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('stats_dailyAzkarCount');
+    await prefs.remove('stats_fortyDaysCount');
+    await prefs.remove('stats_totalTimeSeconds');
+    await prefs.remove('stats_currentStreak');
+    await prefs.remove('stats_longestStreak');
+    await prefs.remove('stats_lastActiveDate');
+    await prefs.remove('stats_activeDates');
+    await prefs.remove('stats_categoryStats');
+  }
+
+  void _setupAuthListener() {
+    _authSubscription?.cancel();
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      final bool wasGuest = _currentUser == null && user != null;
+      final bool wasUser = _currentUser != null && user == null;
+      _currentUser = user;
+
+      if (user != null) {
+        _syncWithFirestore(wasGuest && _hasLoadedAsGuest);
+        _hasLoadedAsGuest = false;
+      } else {
+        _hasLoadedAsGuest = true;
+        if (wasUser) {
+          // Logged out: Clear user stats from local storage so next guest has a clean session
+          resetLocalStats();
+        }
+      }
+    });
+  }
+
+  Future<void> _syncWithFirestore(bool mergeGuestStats) async {
+    if (_currentUser == null) return;
+    final uid = _currentUser!.uid;
+
+    try {
+      final docRef = FirebaseFirestore.instance.collection('users').doc(uid);
+      final doc = await docRef.get();
+
+      if (doc.exists) {
+        final data = doc.data();
+        if (data != null) {
+          final int cloudDaily = data['dailyAzkarCount'] ?? 0;
+          final int cloudFortyDays = data['fortyDaysCount'] ?? 0;
+          final int cloudTotalTime = data['totalTimeSeconds'] ?? 0;
+          final int cloudCurrentStreak = data['currentStreak'] ?? 0;
+          final int cloudLongestStreak = data['longestStreak'] ?? 0;
+          final String cloudLastActiveDate = data['lastActiveDate'] ?? '';
+          final List<String> cloudActiveDates = List<String>.from(data['activeDates'] ?? []);
+
+          Map<String, CategoryStat> cloudCategoryStats = {};
+          if (data['categoryStats'] != null) {
+            final Map<String, dynamic> catMap = data['categoryStats'];
+            cloudCategoryStats = catMap.map(
+              (key, value) => MapEntry(key, CategoryStat.fromJson(value)),
+            );
+          }
+
+          if (mergeGuestStats) {
+            // Merge guest progress into cloud progress
+            _dailyAzkarCount = cloudDaily + _dailyAzkarCount;
+            _fortyDaysCount = cloudFortyDays + _fortyDaysCount;
+            _totalTimeSeconds = cloudTotalTime + _totalTimeSeconds;
+
+            _currentStreak = _currentStreak > cloudCurrentStreak ? _currentStreak : cloudCurrentStreak;
+            _longestStreak = _longestStreak > cloudLongestStreak ? _longestStreak : cloudLongestStreak;
+            if (_longestStreak < _currentStreak) {
+              _longestStreak = _currentStreak;
+            }
+
+            if (_lastActiveDate.isEmpty || (cloudLastActiveDate.isNotEmpty && cloudLastActiveDate.compareTo(_lastActiveDate) > 0)) {
+              _lastActiveDate = cloudLastActiveDate;
+            }
+
+            final Set<String> activeDatesSet = {..._activeDates, ...cloudActiveDates};
+            _activeDates = activeDatesSet.toList();
+
+            for (var entry in cloudCategoryStats.entries) {
+              final catId = entry.key;
+              final cloudStat = entry.value;
+              final localStat = _categoryStats.putIfAbsent(catId, () => CategoryStat());
+              localStat.readCount += cloudStat.readCount;
+              localStat.itemsReadCount += cloudStat.itemsReadCount;
+              localStat.timeSpentSeconds += cloudStat.timeSpentSeconds;
+            }
+
+            // Save the merged stats to both local and cloud
+            await _saveStats();
+          } else {
+            // Overwrite memory and local cache with cloud data (normal app startup login sync)
+            _dailyAzkarCount = cloudDaily;
+            _fortyDaysCount = cloudFortyDays;
+            _totalTimeSeconds = cloudTotalTime;
+            _currentStreak = cloudCurrentStreak;
+            _longestStreak = cloudLongestStreak;
+            _lastActiveDate = cloudLastActiveDate;
+            _activeDates = cloudActiveDates;
+            _categoryStats = cloudCategoryStats;
+
+            _checkStreakValidity();
+
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setInt('stats_dailyAzkarCount', _dailyAzkarCount);
+            await prefs.setInt('stats_fortyDaysCount', _fortyDaysCount);
+            await prefs.setInt('stats_totalTimeSeconds', _totalTimeSeconds);
+            await prefs.setInt('stats_currentStreak', _currentStreak);
+            await prefs.setInt('stats_longestStreak', _longestStreak);
+            await prefs.setString('stats_lastActiveDate', _lastActiveDate);
+            await prefs.setStringList('stats_activeDates', _activeDates);
+
+            final Map<String, dynamic> catMap =
+                _categoryStats.map((key, value) => MapEntry(key, value.toJson()));
+            await prefs.setString('stats_categoryStats', json.encode(catMap));
+          }
+          notifyListeners();
+        }
+      } else {
+        // Document does not exist in cloud: upload local stats to initialize
+        await _saveStats();
+      }
+    } catch (e) {
+      debugPrint("Error syncing stats with Firestore: $e");
+    }
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   /// Helper to format seconds

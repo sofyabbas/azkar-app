@@ -40,6 +40,7 @@ class FortyDaysProvider with ChangeNotifier {
       startDate: DateTime.now(),
       currentDayIndex: 0,
       todaysPrayers: _createEmptyPrayers(),
+      history: const [],
       lastUpdatedDate: DateTime.now(),
     );
     _saveState();
@@ -66,12 +67,21 @@ class FortyDaysProvider with ChangeNotifier {
       bool allCompleted = _state!.todaysPrayers.values.every((p) => p.isCompleted);
       
       if (allCompleted) {
+        final updatedHistory = List<DailyProgress>.from(_state!.history);
+        updatedHistory.add(DailyProgress(
+          dayIndex: _state!.currentDayIndex,
+          date: lastUpdated,
+          completedPrayers: _state!.todaysPrayers.keys.toList(),
+        ));
+        
         if (_state!.currentDayIndex < 39) {
           _state = FortyDaysState(
             startDate: _state!.startDate,
             currentDayIndex: _state!.currentDayIndex + 1,
             todaysPrayers: _createEmptyPrayers(),
+            savedMosques: _state!.savedMosques,
             mosqueLocation: _state!.mosqueLocation,
+            history: updatedHistory,
             lastUpdatedDate: now,
           );
         }
@@ -81,7 +91,9 @@ class FortyDaysProvider with ChangeNotifier {
           startDate: now,
           currentDayIndex: 0,
           todaysPrayers: _createEmptyPrayers(),
+          savedMosques: _state!.savedMosques,
           mosqueLocation: _state!.mosqueLocation,
+          history: const [],
           lastUpdatedDate: now,
         );
       }
@@ -96,7 +108,7 @@ class FortyDaysProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> markPrayerCompleted(String prayerName, {bool byGps = false}) async {
+  Future<void> markPrayerCompleted(String prayerName, {bool byGps = false, String? mosqueName}) async {
     if (_state == null) return;
     
     final currentPrayers = Map<String, PrayerLog>.from(_state!.todaysPrayers);
@@ -104,20 +116,24 @@ class FortyDaysProvider with ChangeNotifier {
       prayerName: prayerName,
       isCompleted: true,
       completedAt: DateTime.now(),
+      mosqueName: mosqueName,
+      verifiedByGps: byGps,
     );
 
     _state = FortyDaysState(
       startDate: _state!.startDate,
       currentDayIndex: _state!.currentDayIndex,
       todaysPrayers: currentPrayers,
+      savedMosques: _state!.savedMosques,
       mosqueLocation: _state!.mosqueLocation,
+      history: _state!.history,
       lastUpdatedDate: DateTime.now(),
     );
     
     await _saveState();
   }
 
-  Future<void> saveMosqueLocation() async {
+  Future<void> saveMosqueLocation(String name) async {
     _isLoading = true;
     _errorMessage = '';
     notifyListeners();
@@ -140,14 +156,26 @@ class FortyDaysProvider with ChangeNotifier {
         throw Exception('Location permissions are permanently denied.');
       }
 
-      final position = await Geolocator.getCurrentPosition();
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
       
       if (_state != null) {
+        final updatedMosques = List<SavedMosque>.from(_state!.savedMosques);
+        updatedMosques.removeWhere((m) => m.name.trim().toLowerCase() == name.trim().toLowerCase());
+        updatedMosques.add(SavedMosque(
+          name: name.trim(),
+          latitude: position.latitude,
+          longitude: position.longitude,
+        ));
+
         _state = FortyDaysState(
           startDate: _state!.startDate,
           currentDayIndex: _state!.currentDayIndex,
           todaysPrayers: _state!.todaysPrayers,
-          mosqueLocation: [position.latitude, position.longitude],
+          savedMosques: updatedMosques,
+          mosqueLocation: _state!.mosqueLocation,
+          history: _state!.history,
           lastUpdatedDate: _state!.lastUpdatedDate,
         );
         await _saveState();
@@ -160,11 +188,29 @@ class FortyDaysProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> verifyLocationWithGps() async {
-    if (_state == null || _state!.mosqueLocation.isEmpty) {
-      _errorMessage = 'لم يتم حفظ موقع المسجد مسبقاً.';
+  Future<void> deleteMosque(String name) async {
+    if (_state == null) return;
+    
+    final updatedMosques = List<SavedMosque>.from(_state!.savedMosques);
+    updatedMosques.removeWhere((m) => m.name == name);
+
+    _state = FortyDaysState(
+      startDate: _state!.startDate,
+      currentDayIndex: _state!.currentDayIndex,
+      todaysPrayers: _state!.todaysPrayers,
+      savedMosques: updatedMosques,
+      mosqueLocation: _state!.mosqueLocation,
+      history: _state!.history,
+      lastUpdatedDate: _state!.lastUpdatedDate,
+    );
+    await _saveState();
+  }
+
+  Future<SavedMosque?> verifyLocationWithGps() async {
+    if (_state == null || _state!.savedMosques.isEmpty) {
+      _errorMessage = 'لم يتم حفظ أي موقع مسجد مسبقاً.';
       notifyListeners();
-      return false;
+      return null;
     }
 
     _isLoading = true;
@@ -173,23 +219,33 @@ class FortyDaysProvider with ChangeNotifier {
 
     try {
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
       
-      double distanceInMeters = Geolocator.distanceBetween(
-        position.latitude, position.longitude,
-        _state!.mosqueLocation[0], _state!.mosqueLocation[1]
-      );
+      double minDistance = double.infinity;
+      SavedMosque? closestMosque;
+      
+      for (var mosque in _state!.savedMosques) {
+        double distance = Geolocator.distanceBetween(
+          position.latitude, position.longitude,
+          mosque.latitude, mosque.longitude
+        );
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestMosque = mosque;
+        }
+      }
 
-      if (distanceInMeters <= 150) {
-        return true;
+      if (minDistance <= 150 && closestMosque != null) {
+        return closestMosque;
       } else {
-        _errorMessage = 'أنت لست قريباً من المسجد المحفوظ. (المسافة: ${distanceInMeters.toStringAsFixed(0)} متر)';
-        return false;
+        final name = closestMosque?.name ?? '';
+        _errorMessage = 'أنت لست قريباً من أي مسجد محفوظ. (أقرب مسجد: $name على بعد ${minDistance.toStringAsFixed(0)} متر)';
+        return null;
       }
     } catch (e) {
       _errorMessage = 'خطأ في التحقق من الموقع: $e';
-      return false;
+      return null;
     } finally {
       _isLoading = false;
       notifyListeners();

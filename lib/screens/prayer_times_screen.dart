@@ -66,31 +66,37 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           // City Picker Dropdown Button
-                          InkWell(
-                            onTap: () => _showCityPickerBottomSheet(context, provider),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    provider.locationName.isEmpty
-                                        ? (_useEnglishFormat ? 'City of London' : 'مدينة لندن')
-                                        : provider.locationName,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => _showCityPickerBottomSheet(context, provider),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        provider.locationName.isEmpty
+                                            ? (_useEnglishFormat ? 'City of London' : 'مدينة لندن')
+                                            : provider.locationName,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    color: Colors.white70,
-                                    size: 22,
-                                  ),
-                                ],
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      color: Colors.white70,
+                                      size: 22,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),

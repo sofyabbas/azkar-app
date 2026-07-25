@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart' as intl;
 import '../providers/forty_days_provider.dart';
+import '../models/forty_days_model.dart';
 
 class FortyDaysScreen extends StatelessWidget {
   const FortyDaysScreen({super.key});
@@ -52,41 +54,87 @@ class FortyDaysScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+
+          // GitHub Progress Grid
+          _buildProgressGrid(state, theme),
+          const SizedBox(height: 16),
+
+          // Achievements/Badges
+          _buildBadgesSection(state, theme),
+          const SizedBox(height: 16),
           
-          // Mosque Location Setup
+          // Mosque Locations Setup
           Card(
-            elevation: 1,
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            elevation: 1.5,
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.location_on, color: theme.colorScheme.primary, size: 32),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('موقع المسجد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        Text(
-                          state.mosqueLocation.isNotEmpty ? 'تم حفظ موقع المسجد بنجاح' : 'لم يتم حفظ موقع المسجد بعد',
-                          style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                        ),
-                      ],
-                    ),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on, color: theme.colorScheme.primary, size: 28),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'مساجدي المحفوظة',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                    ],
                   ),
-                  TextButton(
-                    onPressed: () async {
-                      await provider.saveMosqueLocation();
-                      if (provider.errorMessage.isNotEmpty && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(provider.errorMessage)));
-                      } else if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ الموقع بنجاح!')));
-                      }
-                    },
-                    child: Text(state.mosqueLocation.isNotEmpty ? 'تحديث' : 'حفظ'),
+                  const Divider(height: 24),
+                  if (state.savedMosques.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Text(
+                        'لم تقم بحفظ أي مسجد بعد. احفظ موقع المساجد التي تصلي فيها لتتمكن من إثبات صلاتك بالـ GPS.',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13, height: 1.4),
+                      ),
+                    )
+                  else
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: state.savedMosques.length,
+                      itemBuilder: (context, index) {
+                        final mosque = state.savedMosques[index];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  mosque.name,
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                onPressed: () {
+                                  provider.deleteMosque(mosque.name);
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => _showAddMosqueDialog(context, provider),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('حفظ موقع المسجد الحالي'),
+                    ),
                   ),
                 ],
               ),
@@ -110,7 +158,7 @@ class FortyDaysScreen extends StatelessWidget {
                   child: Icon(isCompleted ? Icons.check : Icons.access_time, color: isCompleted ? Colors.white : Colors.grey[600]),
                 ),
                 title: Text(pName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                subtitle: isCompleted ? const Text('تمت الصلاة جماعة') : const Text('في انتظار الإثبات'),
+                subtitle: _buildPrayerSubtitle(prayerLog),
                 trailing: isCompleted ? null : Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -118,10 +166,14 @@ class FortyDaysScreen extends StatelessWidget {
                       icon: Icon(Icons.location_on_outlined, color: theme.colorScheme.secondary),
                       tooltip: 'إثبات بالـ GPS',
                       onPressed: () async {
-                        bool verified = await provider.verifyLocationWithGps();
-                        if (verified) {
-                          await provider.markPrayerCompleted(pName, byGps: true);
-                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الإثبات بنجاح!')));
+                        final matchedMosque = await provider.verifyLocationWithGps();
+                        if (matchedMosque != null) {
+                          await provider.markPrayerCompleted(pName, byGps: true, mosqueName: matchedMosque.name);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('تم الإثبات بنجاح في "${matchedMosque.name}"!')),
+                            );
+                          }
                         } else if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(provider.errorMessage)));
                         }
@@ -166,6 +218,247 @@ class FortyDaysScreen extends StatelessWidget {
               },
             ),
           )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressGrid(FortyDaysState state, ThemeData theme) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'مسار الأربعين يوماً',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 8,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemCount: 40,
+              itemBuilder: (context, index) {
+                Color cellColor;
+                Color textColor = Colors.white;
+                
+                if (index < state.currentDayIndex) {
+                  cellColor = const Color(0xFF2E7D32); // Completed
+                } else if (index == state.currentDayIndex) {
+                  final completedCount = state.todaysPrayers.values.where((p) => p.isCompleted).length;
+                  if (completedCount == 5) {
+                    cellColor = const Color(0xFF2E7D32);
+                  } else if (completedCount > 0) {
+                    cellColor = const Color(0xFFFFB300); // In progress
+                  } else {
+                    cellColor = Colors.grey[350]!; // Today, not started
+                    textColor = Colors.black87;
+                  }
+                } else {
+                  cellColor = Colors.grey[200]!; // Future
+                  textColor = Colors.black54;
+                }
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: cellColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${index + 1}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: textColor,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBadgesSection(FortyDaysState state, ThemeData theme) {
+    final bool isBadge1Unlocked = state.currentDayIndex >= 3;
+    final bool isBadge2Unlocked = state.currentDayIndex >= 10;
+    final bool isBadge3Unlocked = state.currentDayIndex >= 25;
+    final bool isBadge4Unlocked = state.currentDayIndex >= 39 &&
+        state.todaysPrayers.values.every((p) => p.isCompleted);
+
+    final badges = [
+      {
+        'emoji': '🎖️',
+        'title': 'بداية الهمة (3 أيام)',
+        'desc': 'المحافظة على الجماعة لـ 3 أيام متتالية',
+        'unlocked': isBadge1Unlocked,
+      },
+      {
+        'emoji': '⚡',
+        'title': 'المواظب (10 أيام)',
+        'desc': 'المحافظة على الجماعة لـ 10 أيام متتالية',
+        'unlocked': isBadge2Unlocked,
+      },
+      {
+        'emoji': '🕌',
+        'title': 'نور المساجد (25 يوماً)',
+        'desc': 'المحافظة على الجماعة لـ 25 يوماً متتالية',
+        'unlocked': isBadge3Unlocked,
+      },
+      {
+        'emoji': '👑',
+        'title': 'الفائز بالبراءتين (40 يوماً)',
+        'desc': 'أتممت 40 يوماً يدرك التكبيرة الأولى بنجاح!',
+        'unlocked': isBadge4Unlocked,
+      },
+    ];
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'أوسمة التحدي وإنجازاتك',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const Divider(height: 24),
+            ...badges.map((badge) {
+              final bool unlocked = badge['unlocked'] as bool;
+              return Opacity(
+                opacity: unlocked ? 1.0 : 0.45,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: unlocked ? theme.colorScheme.primary.withValues(alpha: 0.1) : Colors.grey[200],
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          badge['emoji'] as String,
+                          style: const TextStyle(fontSize: 24),
+                        ),
+                       ),
+                       const SizedBox(width: 14),
+                       Expanded(
+                         child: Column(
+                           crossAxisAlignment: CrossAxisAlignment.start,
+                           children: [
+                             Text(
+                               badge['title'] as String,
+                               style: TextStyle(
+                                 fontWeight: FontWeight.bold,
+                                 fontSize: 14,
+                                 color: unlocked ? theme.colorScheme.primary : Colors.black87,
+                               ),
+                             ),
+                             const SizedBox(height: 2),
+                             Text(
+                               badge['desc'] as String,
+                               style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                             ),
+                           ],
+                         ),
+                       ),
+                       if (unlocked)
+                         const Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 22)
+                       else
+                         const Icon(Icons.lock_outline, color: Colors.grey, size: 20),
+                     ],
+                   ),
+                 ),
+               );
+             }),
+           ],
+         ),
+       ),
+     );
+   }
+
+  Widget _buildPrayerSubtitle(PrayerLog? prayerLog) {
+    if (prayerLog == null || !prayerLog.isCompleted) {
+      return const Text('في انتظار الإثبات');
+    }
+    final timeStr = prayerLog.completedAt != null
+        ? intl.DateFormat.jm('ar').format(prayerLog.completedAt!)
+        : '';
+    
+    if (prayerLog.verifiedByGps == true) {
+      if (prayerLog.mosqueName != null && prayerLog.mosqueName!.isNotEmpty) {
+        return Text('تم الإثبات بالـ GPS في "${prayerLog.mosqueName}" الساعة $timeStr');
+      }
+      return Text('تم الإثبات بالـ GPS الساعة $timeStr');
+    }
+    return Text('تم الإثبات يدوياً الساعة $timeStr');
+  }
+
+  void _showAddMosqueDialog(BuildContext context, FortyDaysProvider provider) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('حفظ موقع المسجد الحالي', textAlign: TextAlign.right),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            const Text(
+              'أدخل اسماً للمسجد ليتم حفظ موقعك الجغرافي الحالي به (مثال: مسجد البيت، مسجد الشغل، مسجد المحطة):',
+              textAlign: TextAlign.right,
+              style: TextStyle(fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              textAlign: TextAlign.right,
+              decoration: const InputDecoration(
+                hintText: 'اسم المسجد',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('جاري تحديد موقعك وحفظ المسجد...'), duration: Duration(seconds: 2)),
+                );
+                await provider.saveMosqueLocation(name);
+                if (provider.errorMessage.isNotEmpty && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(provider.errorMessage)));
+                } else if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم حفظ موقع "$name" بنجاح!')));
+                }
+              }
+            },
+            child: const Text('حفظ الموقع'),
+          ),
         ],
       ),
     );

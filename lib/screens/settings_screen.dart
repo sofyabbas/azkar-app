@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:adhan/adhan.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/prayer_provider.dart';
 import '../providers/azkar_provider.dart';
 import '../services/notification_service.dart';
@@ -18,6 +19,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late CalculationMethod _calculationMethod;
   late String _adhanSound;
   late double _currentFontSize;
+  bool _fortyDaysReminders = true;
 
   final Map<String, String> _adhanSounds = {
     'adhan': 'الأذان الافتراضي',
@@ -48,6 +50,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _calculationMethod = prayerProvider.calculationMethod;
     _adhanSound = prayerProvider.adhanSound;
     _currentFontSize = azkarProvider.fontSize;
+    _loadFortyDaysReminders();
+  }
+
+  void _loadFortyDaysReminders() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _fortyDaysReminders = prefs.getBool('fortyDaysReminders') ?? true;
+    });
   }
 
   @override
@@ -59,6 +69,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _saveSettings() async {
     final prayerProvider = Provider.of<PrayerProvider>(context, listen: false);
     final azkarProvider = Provider.of<AzkarProvider>(context, listen: false);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('fortyDaysReminders', _fortyDaysReminders);
 
     await prayerProvider.updateSettings(
       _isAutomaticLocation,
@@ -301,6 +314,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         },
                       ),
                     ),
+                  ),
+                  const Divider(height: 24),
+                  SwitchListTile(
+                    activeColor: primaryColor,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('تذكيرات مشروع 40 يوم', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    subtitle: const Text('تنبيهك قبل كل صلاة بـ 15 دقيقة لتستعد للذهاب للمسجد'),
+                    value: _fortyDaysReminders,
+                    onChanged: (bool value) {
+                      setState(() {
+                        _fortyDaysReminders = value;
+                      });
+                    },
                   ),
                 ],
               ),

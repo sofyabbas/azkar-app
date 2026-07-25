@@ -41,6 +41,15 @@ class AzkarApp extends StatelessWidget {
     return MaterialApp(
       title: 'أذكار ومواقيت الصلاة',
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: mediaQuery.textScaler.clamp(minScaleFactor: 1.0, maxScaleFactor: 1.25),
+          ),
+          child: child!,
+        );
+      },
       locale: const Locale('ar'),
       supportedLocales: const [
         Locale('ar'),
