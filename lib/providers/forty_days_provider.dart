@@ -2,12 +2,20 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:adhan/adhan.dart';
 import '../models/forty_days_model.dart';
 
 class FortyDaysProvider with ChangeNotifier {
   FortyDaysState? _state;
   bool _isLoading = true;
   String _errorMessage = '';
+  String? _autoCheckInSuccessMessage;
+
+  String? get autoCheckInSuccessMessage => _autoCheckInSuccessMessage;
+
+  void clearAutoCheckInSuccessMessage() {
+    _autoCheckInSuccessMessage = null;
+  }
 
   FortyDaysState? get state => _state;
   bool get isLoading => _isLoading;
@@ -254,5 +262,97 @@ class FortyDaysProvider with ChangeNotifier {
 
   Future<void> resetChallenge() async {
     _initializeNewChallenge();
+  }
+
+  Future<SavedMosque?> _verifyLocationGpsSilently() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return null;
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        return null;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      ).timeout(const Duration(seconds: 4));
+      
+      double minDistance = double.infinity;
+      SavedMosque? closestMosque;
+      
+      for (var mosque in _state!.savedMosques) {
+        double distance = Geolocator.distanceBetween(
+          position.latitude, position.longitude,
+          mosque.latitude, mosque.longitude
+        );
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestMosque = mosque;
+        }
+      }
+
+      if (minDistance <= 150 && closestMosque != null) {
+        return closestMosque;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<void> runAutomaticGpsCheckIn({
+    required PrayerTimes prayerTimes,
+  }) async {
+    if (_isLoading || _state == null || _state!.savedMosques.isEmpty) return;
+
+    final now = DateTime.now();
+    
+    final challengePrayers = {
+      'الفجر': {
+        'time': prayerTimes.fajr,
+        'window': 5,
+      },
+      'الظهر': {
+        'time': prayerTimes.dhuhr,
+        'window': 5,
+      },
+      'العصر': {
+        'time': prayerTimes.asr,
+        'window': 5,
+      },
+      'المغرب': {
+        'time': prayerTimes.maghrib,
+        'window': 1,
+      },
+      'العشاء': {
+        'time': prayerTimes.isha,
+        'window': 5,
+      },
+    };
+
+    String? activePrayerName;
+
+    for (var entry in challengePrayers.entries) {
+      final pName = entry.key;
+      final pTime = entry.value['time'] as DateTime;
+      final window = entry.value['window'] as int;
+
+      final diffSeconds = now.difference(pTime).inSeconds;
+      if (diffSeconds >= 0 && diffSeconds <= (window * 60)) {
+        final log = _state!.todaysPrayers[pName];
+        if (log == null || !log.isCompleted) {
+          activePrayerName = pName;
+          break;
+        }
+      }
+    }
+
+    if (activePrayerName == null) return;
+
+    final matchedMosque = await _verifyLocationGpsSilently();
+    if (matchedMosque != null) {
+      await markPrayerCompleted(activePrayerName, byGps: true, mosqueName: matchedMosque.name);
+      _autoCheckInSuccessMessage = 'تم إثبات صلاة $activePrayerName جماعة تلقائياً في مسجد "${matchedMosque.name}"! 🎉';
+      notifyListeners();
+    }
   }
 }

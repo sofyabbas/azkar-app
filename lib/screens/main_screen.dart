@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/prayer_provider.dart';
+import '../providers/forty_days_provider.dart';
 import 'home_screen.dart';
 import 'prayer_times_screen.dart';
 import 'qibla_screen.dart';
@@ -11,7 +14,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
 
   final List<Widget> _pages = [
@@ -22,8 +25,69 @@ class _MainScreenState extends State<MainScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _runAutomaticGpsCheckIn();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _runAutomaticGpsCheckIn();
+    }
+  }
+
+  void _runAutomaticGpsCheckIn() {
+    if (!mounted) return;
+    final prayerProvider = Provider.of<PrayerProvider>(context, listen: false);
+    final fortyDaysProvider = Provider.of<FortyDaysProvider>(context, listen: false);
+    
+    final prayerTimes = prayerProvider.prayerTimes;
+    if (prayerTimes != null) {
+      fortyDaysProvider.runAutomaticGpsCheckIn(prayerTimes: prayerTimes);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     const primaryColor = Color(0xFF1E3A37);
+
+    // Listen to FortyDaysProvider for automatic check-in success messages
+    final fortyDaysProvider = Provider.of<FortyDaysProvider>(context, listen: true);
+    if (fortyDaysProvider.autoCheckInSuccessMessage != null) {
+      final msg = fortyDaysProvider.autoCheckInSuccessMessage!;
+      fortyDaysProvider.clearAutoCheckInSuccessMessage();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.greenAccent),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    msg,
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF1E3A37),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      });
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6FAF9),
