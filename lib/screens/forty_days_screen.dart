@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart' as intl;
@@ -6,6 +7,34 @@ import '../models/forty_days_model.dart';
 
 class FortyDaysScreen extends StatelessWidget {
   const FortyDaysScreen({super.key});
+
+  int getCurrentStreak(List<DailyProgress> history) {
+    int streak = 0;
+    for (int i = history.length - 1; i >= 0; i--) {
+      if (history[i].isSuccess) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  int getMaxStreak(List<DailyProgress> history) {
+    int maxStreak = 0;
+    int current = 0;
+    for (var day in history) {
+      if (day.isSuccess) {
+        current++;
+        if (current > maxStreak) {
+          maxStreak = current;
+        }
+      } else {
+        current = 0;
+      }
+    }
+    return maxStreak;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,8 +50,12 @@ class FortyDaysScreen extends StatelessWidget {
       return const Center(child: Text('Error loading state'));
     }
 
-    final int currentDay = state.currentDayIndex + 1;
-    final double progress = currentDay / 40.0;
+    final int currentStreak = getCurrentStreak(state.history);
+    final int maxStreak = getMaxStreak(state.history);
+    final bool isTodayCompleted = state.todaysPrayers.values.every((p) => p.isCompleted);
+    final int displayStreak = currentStreak + (isTodayCompleted ? 1 : 0);
+    final int displayMaxStreak = math.max(maxStreak, displayStreak);
+    final double progress = (displayStreak / 40.0).clamp(0.0, 1.0);
 
     return Scaffold(
       appBar: AppBar(
@@ -95,7 +128,7 @@ class FortyDaysScreen extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  Text('اليوم $currentDay من 40', style: theme.textTheme.headlineSmall?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
+                  Text('السلسلة الحالية: $displayStreak من 40 يوم', style: theme.textTheme.headlineSmall?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                   LinearProgressIndicator(
                     value: progress,
@@ -113,11 +146,11 @@ class FortyDaysScreen extends StatelessWidget {
           const SizedBox(height: 16),
 
           // GitHub Progress Grid
-          _buildProgressGrid(state, theme),
+          _buildProgressGrid(state, theme, currentStreak),
           const SizedBox(height: 16),
 
           // Achievements/Badges
-          _buildBadgesSection(state, theme),
+          _buildBadgesSection(state, theme, displayMaxStreak),
           const SizedBox(height: 16),
           
           // Mosque Locations Setup
@@ -215,35 +248,75 @@ class FortyDaysScreen extends StatelessWidget {
                 ),
                 title: Text(pName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 subtitle: _buildPrayerSubtitle(prayerLog),
-                trailing: isCompleted ? null : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.location_on_outlined, color: theme.colorScheme.secondary),
-                      tooltip: 'إثبات بالـ GPS',
-                      onPressed: () async {
-                        final matchedMosque = await provider.verifyLocationWithGps();
-                        if (matchedMosque != null) {
-                          await provider.markPrayerCompleted(pName, byGps: true, mosqueName: matchedMosque.name);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('تم الإثبات بنجاح في "${matchedMosque.name}"!')),
-                            );
-                          }
-                        } else if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(provider.errorMessage)));
-                        }
-                      },
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.check_circle_outline, color: theme.colorScheme.primary),
-                      tooltip: 'إثبات يدوي',
-                      onPressed: () async {
-                        await provider.markPrayerCompleted(pName, byGps: false);
-                      },
-                    ),
-                  ],
-                ),
+                trailing: isCompleted
+                    ? IconButton(
+                        icon: const Icon(Icons.undo, color: Colors.redAccent),
+                        tooltip: 'إلغاء الإثبات',
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('إلغاء الإثبات', textAlign: TextAlign.right),
+                              content: Text('هل تريد إلغاء إثبات صلاة $pName؟', textAlign: TextAlign.right),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+                                TextButton(
+                                  onPressed: () {
+                                    provider.unmarkPrayerCompleted(pName);
+                                    Navigator.pop(ctx);
+                                  },
+                                  child: const Text('نعم، الغِ الإثبات', style: TextStyle(color: Colors.red)),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      )
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.location_on_outlined, color: theme.colorScheme.secondary),
+                            tooltip: 'إثبات بالـ GPS',
+                            onPressed: () async {
+                              final matchedMosque = await provider.verifyLocationWithGps();
+                              if (matchedMosque != null) {
+                                await provider.markPrayerCompleted(pName, byGps: true, mosqueName: matchedMosque.name);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('تم الإثبات بنجاح في "${matchedMosque.name}"!')),
+                                  );
+                                }
+                              } else if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(provider.errorMessage)));
+                              }
+                            },
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.check_circle_outline, color: theme.colorScheme.primary),
+                            tooltip: 'إثبات يدوي',
+                            onPressed: () async {
+                              final closeMosque = await provider.verifyLocationGpsSilently();
+                              await provider.markPrayerCompleted(
+                                pName,
+                                byGps: false,
+                                mosqueName: closeMosque?.name,
+                              );
+                              if (context.mounted) {
+                                if (closeMosque != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('تم الإثبات يدوياً وتحديد المسجد: "${closeMosque.name}" تلقائياً! 🕌')),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('تم الإثبات يدوياً بنجاح!')),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                        ],
+                      ),
               ),
             );
           }),
@@ -279,7 +352,10 @@ class FortyDaysScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProgressGrid(FortyDaysState state, ThemeData theme) {
+  Widget _buildProgressGrid(FortyDaysState state, ThemeData theme, int currentStreak) {
+    final history = state.history;
+    final int totalGridItems = history.length + (40 - currentStreak).clamp(1, 40);
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -301,40 +377,77 @@ class FortyDaysScreen extends StatelessWidget {
                 crossAxisSpacing: 8,
                 mainAxisSpacing: 8,
               ),
-              itemCount: 40,
+              itemCount: totalGridItems,
               itemBuilder: (context, index) {
                 Color cellColor;
                 Color textColor = Colors.white;
-                
-                if (index < state.currentDayIndex) {
-                  cellColor = const Color(0xFF2E7D32); // Completed
-                } else if (index == state.currentDayIndex) {
+                VoidCallback? onTap;
+
+                if (index < history.length) {
+                  final dayProgress = history[index];
+                  if (dayProgress.isSuccess) {
+                    cellColor = const Color(0xFF2E7D32);
+                  } else {
+                    cellColor = const Color(0xFFFFB300);
+                  }
+                  onTap = () {
+                    _showDayDetailsBottomSheet(
+                      context: context,
+                      date: dayProgress.date,
+                      prayers: dayProgress.prayers,
+                      isSuccess: dayProgress.isSuccess,
+                      dayIndex: index + 1,
+                      isToday: false,
+                    );
+                  };
+                } else if (index == history.length) {
                   final completedCount = state.todaysPrayers.values.where((p) => p.isCompleted).length;
                   if (completedCount == 5) {
                     cellColor = const Color(0xFF2E7D32);
                   } else if (completedCount > 0) {
-                    cellColor = const Color(0xFFFFB300); // In progress
+                    cellColor = const Color(0xFFFF9800);
                   } else {
-                    cellColor = Colors.grey[350]!; // Today, not started
+                    cellColor = Colors.grey[350]!;
                     textColor = Colors.black87;
                   }
+                  onTap = () {
+                    _showDayDetailsBottomSheet(
+                      context: context,
+                      date: DateTime.now(),
+                      prayers: state.todaysPrayers,
+                      isSuccess: completedCount == 5,
+                      dayIndex: index + 1,
+                      isToday: true,
+                    );
+                  };
                 } else {
-                  cellColor = Colors.grey[200]!; // Future
+                  cellColor = Colors.grey[200]!;
                   textColor = Colors.black54;
+                  onTap = null;
                 }
 
-                return Container(
-                  decoration: BoxDecoration(
-                    color: cellColor,
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onTap,
                     borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${index + 1}',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: cellColor,
+                        borderRadius: BorderRadius.circular(8),
+                        border: index == history.length
+                            ? Border.all(color: theme.colorScheme.primary, width: 2)
+                            : null,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${index + 1}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -347,12 +460,11 @@ class FortyDaysScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBadgesSection(FortyDaysState state, ThemeData theme) {
-    final bool isBadge1Unlocked = state.currentDayIndex >= 3;
-    final bool isBadge2Unlocked = state.currentDayIndex >= 10;
-    final bool isBadge3Unlocked = state.currentDayIndex >= 25;
-    final bool isBadge4Unlocked = state.currentDayIndex >= 39 &&
-        state.todaysPrayers.values.every((p) => p.isCompleted);
+  Widget _buildBadgesSection(FortyDaysState state, ThemeData theme, int displayMaxStreak) {
+    final bool isBadge1Unlocked = displayMaxStreak >= 3;
+    final bool isBadge2Unlocked = displayMaxStreak >= 10;
+    final bool isBadge3Unlocked = displayMaxStreak >= 25;
+    final bool isBadge4Unlocked = displayMaxStreak >= 40;
 
     final badges = [
       {
@@ -517,6 +629,168 @@ class FortyDaysScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showDayDetailsBottomSheet({
+    required BuildContext context,
+    required DateTime date,
+    required Map<String, PrayerLog> prayers,
+    required bool isSuccess,
+    required int dayIndex,
+    bool isToday = false,
+  }) {
+    final formattedDate = intl.DateFormat('EEEE، d MMMM yyyy', 'ar').format(date);
+    final theme = Theme.of(context);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.65,
+          minChildSize: 0.4,
+          maxChildSize: 0.85,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: BoxDecoration(
+                color: theme.scaffoldBackgroundColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2.5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'تفاصيل اليوم $dayIndex',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isSuccess
+                              ? const Color(0xFF2E7D32).withValues(alpha: 0.1)
+                              : Colors.amber.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          isSuccess ? 'مكتمل بنجاح 🎉' : (isToday ? 'جاري التحدي ⚡' : 'غير مكتمل ⚠️'),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: isSuccess ? const Color(0xFF2E7D32) : Colors.amber.shade900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    formattedDate,
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                  const Divider(height: 32),
+                  const Text(
+                    'الصلوات الخمس في الجماعة:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...['الفجر', 'الظهر', 'العصر', 'المغرب', 'العشاء'].map((pName) {
+                    final log = prayers[pName];
+                    final completed = log?.isCompleted ?? false;
+                    final completedAtStr = log?.completedAt != null
+                        ? intl.DateFormat.jm('ar').format(log!.completedAt!)
+                        : '';
+                    
+                    String detailText = 'لم تؤدَّ في المسجد';
+                    IconData icon = Icons.cancel_outlined;
+                    Color iconColor = Colors.redAccent;
+                    
+                    if (completed) {
+                      icon = Icons.check_circle;
+                      iconColor = const Color(0xFF2E7D32);
+                      if (log?.verifiedByGps == true) {
+                        detailText = 'أديت في جماعة (بالـ GPS) في "${log?.mosqueName ?? 'مسجد محفوظ'}" الساعة $completedAtStr';
+                      } else {
+                        detailText = 'أديت في جماعة (يدوي)${log?.mosqueName != null ? ' في "${log!.mosqueName}"' : ''} الساعة $completedAtStr';
+                      }
+                    }
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: theme.cardColor,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: completed
+                              ? const Color(0xFF2E7D32).withValues(alpha: 0.15)
+                              : Colors.grey.withValues(alpha: 0.1),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(icon, color: iconColor, size: 28),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  pName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  detailText,
+                                  style: TextStyle(
+                                    color: completed ? Colors.grey[800] : Colors.grey[500],
+                                    fontSize: 13,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

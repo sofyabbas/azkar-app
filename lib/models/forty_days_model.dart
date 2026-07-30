@@ -35,25 +35,50 @@ class PrayerLog {
 class DailyProgress {
   final int dayIndex;
   final DateTime date;
-  final List<String> completedPrayers;
+  final Map<String, PrayerLog> prayers;
+  final bool isSuccess;
 
   DailyProgress({
     required this.dayIndex,
     required this.date,
-    required this.completedPrayers,
+    required this.prayers,
+    required this.isSuccess,
   });
 
   Map<String, dynamic> toJson() => {
         'dayIndex': dayIndex,
         'date': date.toIso8601String(),
-        'completedPrayers': completedPrayers,
+        'prayers': prayers.map((k, v) => MapEntry(k, v.toJson())),
+        'isSuccess': isSuccess,
       };
 
-  factory DailyProgress.fromJson(Map<String, dynamic> json) => DailyProgress(
-        dayIndex: json['dayIndex'] ?? 0,
-        date: DateTime.parse(json['date']),
-        completedPrayers: List<String>.from(json['completedPrayers'] ?? []),
-      );
+  factory DailyProgress.fromJson(Map<String, dynamic> json) {
+    var prayersMap = json['prayers'] as Map<String, dynamic>? ?? {};
+    Map<String, PrayerLog> parsedPrayers = {};
+    prayersMap.forEach((key, value) {
+      parsedPrayers[key] = PrayerLog.fromJson(value);
+    });
+
+    // Handle legacy DailyProgress format where only completedPrayers list existed
+    bool legacySuccess = false;
+    if (parsedPrayers.isEmpty && json['completedPrayers'] != null) {
+      final List<String> completedList = List<String>.from(json['completedPrayers']);
+      legacySuccess = completedList.length == 5;
+      for (var name in ['الفجر', 'الظهر', 'العصر', 'المغرب', 'العشاء']) {
+        parsedPrayers[name] = PrayerLog(
+          prayerName: name,
+          isCompleted: completedList.contains(name),
+        );
+      }
+    }
+
+    return DailyProgress(
+      dayIndex: json['dayIndex'] ?? 0,
+      date: DateTime.parse(json['date']),
+      prayers: parsedPrayers,
+      isSuccess: json['isSuccess'] ?? legacySuccess,
+    );
+  }
 }
 
 class SavedMosque {

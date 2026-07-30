@@ -83,37 +83,23 @@ class FortyDaysProvider with ChangeNotifier {
       // It's a new day! Check if yesterday was completed.
       bool allCompleted = _state!.todaysPrayers.values.every((p) => p.isCompleted);
       
-      if (allCompleted) {
-        final updatedHistory = List<DailyProgress>.from(_state!.history);
-        updatedHistory.add(DailyProgress(
-          dayIndex: _state!.currentDayIndex,
-          date: lastUpdated,
-          completedPrayers: _state!.todaysPrayers.keys.toList(),
-        ));
-        
-        if (_state!.currentDayIndex < 39) {
-          _state = FortyDaysState(
-            startDate: _state!.startDate,
-            currentDayIndex: _state!.currentDayIndex + 1,
-            todaysPrayers: _createEmptyPrayers(),
-            savedMosques: _state!.savedMosques,
-            mosqueLocation: _state!.mosqueLocation,
-            history: updatedHistory,
-            lastUpdatedDate: now,
-          );
-        }
-      } else {
-        // Failed the challenge, restart!
-        _state = FortyDaysState(
-          startDate: now,
-          currentDayIndex: 0,
-          todaysPrayers: _createEmptyPrayers(),
-          savedMosques: _state!.savedMosques,
-          mosqueLocation: _state!.mosqueLocation,
-          history: const [],
-          lastUpdatedDate: now,
-        );
-      }
+      final updatedHistory = List<DailyProgress>.from(_state!.history);
+      updatedHistory.add(DailyProgress(
+        dayIndex: _state!.currentDayIndex,
+        date: lastUpdated,
+        prayers: _state!.todaysPrayers,
+        isSuccess: allCompleted,
+      ));
+      
+      _state = FortyDaysState(
+        startDate: _state!.startDate,
+        currentDayIndex: updatedHistory.length,
+        todaysPrayers: _createEmptyPrayers(),
+        savedMosques: _state!.savedMosques,
+        mosqueLocation: _state!.mosqueLocation,
+        history: updatedHistory,
+        lastUpdatedDate: now,
+      );
       _saveState();
     }
   }
@@ -146,6 +132,28 @@ class FortyDaysProvider with ChangeNotifier {
       completedAt: DateTime.now(),
       mosqueName: mosqueName,
       verifiedByGps: byGps,
+    );
+
+    _state = FortyDaysState(
+      startDate: _state!.startDate,
+      currentDayIndex: _state!.currentDayIndex,
+      todaysPrayers: currentPrayers,
+      savedMosques: _state!.savedMosques,
+      mosqueLocation: _state!.mosqueLocation,
+      history: _state!.history,
+      lastUpdatedDate: DateTime.now(),
+    );
+    
+    await _saveState();
+  }
+
+  Future<void> unmarkPrayerCompleted(String prayerName) async {
+    if (_state == null) return;
+    
+    final currentPrayers = Map<String, PrayerLog>.from(_state!.todaysPrayers);
+    currentPrayers[prayerName] = PrayerLog(
+      prayerName: prayerName,
+      isCompleted: false,
     );
 
     _state = FortyDaysState(
@@ -284,7 +292,7 @@ class FortyDaysProvider with ChangeNotifier {
     _initializeNewChallenge();
   }
 
-  Future<SavedMosque?> _verifyLocationGpsSilently() async {
+  Future<SavedMosque?> verifyLocationGpsSilently() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) return null;
@@ -378,7 +386,7 @@ class FortyDaysProvider with ChangeNotifier {
 
     if (activePrayerName == null) return;
 
-    final matchedMosque = await _verifyLocationGpsSilently();
+    final matchedMosque = await verifyLocationGpsSilently();
     if (matchedMosque != null) {
       await markPrayerCompleted(activePrayerName, byGps: true, mosqueName: matchedMosque.name);
       _autoCheckInSuccessMessage = 'تم إثبات صلاة $activePrayerName جماعة تلقائياً في مسجد "${matchedMosque.name}"! 🎉';
