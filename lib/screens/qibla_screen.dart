@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:adhan/adhan.dart';
@@ -22,6 +23,14 @@ class _QiblaScreenState extends State<QiblaScreen> with SingleTickerProviderStat
   double? _latitude;
   double? _longitude;
   String _locationName = '';
+
+  // Continuous heading variables for smoothing
+  double _lastTargetHeading = 0.0;
+  double _lastHeadingInput = 0.0;
+  bool _hasInitialHeading = false;
+  bool _wasAligned = false;
+  double _prevDialAngle = 0.0;
+  double _prevNeedleAngle = 0.0;
 
   @override
   void initState() {
@@ -121,6 +130,24 @@ class _QiblaScreenState extends State<QiblaScreen> with SingleTickerProviderStat
     return diff;
   }
 
+  double _getContinuousHeading(double currentInput) {
+    if (!_hasInitialHeading) {
+      _lastHeadingInput = currentInput;
+      _lastTargetHeading = currentInput;
+      _hasInitialHeading = true;
+      return currentInput;
+    }
+    double diff = currentInput - _lastHeadingInput;
+    if (diff > 180) {
+      diff -= 360;
+    } else if (diff < -180) {
+      diff += 360;
+    }
+    _lastHeadingInput = currentInput;
+    _lastTargetHeading += diff;
+    return _lastTargetHeading;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -216,7 +243,19 @@ class _QiblaScreenState extends State<QiblaScreen> with SingleTickerProviderStat
         final double qiblaAngle = _qiblaDirection ?? 0.0;
         final double headingAngle = _heading!;
         final double diff = _getAngleDifference(qiblaAngle, headingAngle);
-        final bool isAligned = diff.abs() <= 3.5;
+        final bool isAligned = diff.abs() <= 4.0;
+
+        // Trigger haptic feedback exactly once when aligned
+        if (isAligned && !_wasAligned) {
+          _wasAligned = true;
+          HapticFeedback.mediumImpact();
+        } else if (!isAligned) {
+          _wasAligned = false;
+        }
+
+        final double continuousHeading = _getContinuousHeading(headingAngle);
+        final double dialAngleRad = -continuousHeading * (math.pi / 180);
+        final double needleAngleRad = (qiblaAngle - continuousHeading) * (math.pi / 180);
 
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -315,15 +354,31 @@ class _QiblaScreenState extends State<QiblaScreen> with SingleTickerProviderStat
                     ),
 
                     // Rotating Compass Dial
-                    Transform.rotate(
-                      angle: -headingAngle * (math.pi / 180),
-                      child: _buildCompassDial(theme, isDark),
+                    TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: _prevDialAngle, end: dialAngleRad),
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.decelerate,
+                      builder: (context, angle, child) {
+                        _prevDialAngle = angle;
+                        return Transform.rotate(
+                          angle: angle,
+                          child: _buildCompassDial(theme, isDark),
+                        );
+                      },
                     ),
 
                     // Rotating Qibla Needle (points to Kaaba relative to North dial)
-                    Transform.rotate(
-                      angle: (qiblaAngle - headingAngle) * (math.pi / 180),
-                      child: _buildQiblaNeedle(isAligned, theme),
+                    TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: _prevNeedleAngle, end: needleAngleRad),
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.decelerate,
+                      builder: (context, angle, child) {
+                        _prevNeedleAngle = angle;
+                        return Transform.rotate(
+                          angle: angle,
+                          child: _buildQiblaNeedle(isAligned, theme),
+                        );
+                      },
                     ),
 
                     // Center Pivot Dot
@@ -379,70 +434,109 @@ class _QiblaScreenState extends State<QiblaScreen> with SingleTickerProviderStat
   }
 
   Widget _buildCompassDial(ThemeData theme, bool isDark) {
+    const Color goldColor = Color(0xFFFFD700);
+
     return Container(
       width: 270,
       height: 270,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: isDark ? const Color(0xFF1E2638) : Colors.white,
+        gradient: RadialGradient(
+          colors: isDark
+              ? [const Color(0xFF234440), const Color(0xFF142624)]
+              : [const Color(0xFFFAFCFC), const Color(0xFFE5ECEB)],
+          center: Alignment.center,
+          radius: 0.85,
+        ),
         border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.3),
-          width: 4,
+          color: goldColor.withValues(alpha: 0.85),
+          width: 5,
         ),
         boxShadow: [
           BoxShadow(
-            color: isDark ? Colors.black45 : Colors.grey.withValues(alpha: 0.3),
-            blurRadius: 15,
-            spreadRadius: 2,
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Stack(
         alignment: Alignment.center,
         children: [
+          // Inner gold accent circle
+          Container(
+            width: 246,
+            height: 246,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: goldColor.withValues(alpha: 0.2),
+                width: 1.5,
+              ),
+            ),
+          ),
           // Cardinal Directions (N, E, S, W)
-          const Positioned(
-            top: 12,
+          Positioned(
+            top: 16,
             child: Text(
               'شمال',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.red),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.red.shade700,
+                shadows: const [Shadow(color: Colors.black26, blurRadius: 2)],
+              ),
             ),
           ),
           const Positioned(
-            bottom: 12,
+            bottom: 16,
             child: Text(
               'جنوب',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: Colors.grey,
+              ),
             ),
           ),
-          const Positioned(
-            right: 14,
+          Positioned(
+            right: 18,
             child: Text(
               'شرق',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: isDark ? Colors.white70 : Colors.grey.shade700,
+              ),
             ),
           ),
-          const Positioned(
-            left: 14,
+          Positioned(
+            left: 18,
             child: Text(
               'غرب',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: isDark ? Colors.white70 : Colors.grey.shade700,
+              ),
             ),
           ),
 
-          // Ticks around dial
-          for (int i = 0; i < 360; i += 30)
+          // Ticks around dial (every 10 degrees)
+          for (int i = 0; i < 360; i += 10)
             Transform.rotate(
               angle: i * (math.pi / 180),
               child: Align(
                 alignment: Alignment.topCenter,
                 child: Container(
-                  margin: const EdgeInsets.only(top: 6),
-                  width: i % 90 == 0 ? 3 : 1,
-                  height: i % 90 == 0 ? 12 : 6,
+                  margin: const EdgeInsets.only(top: 8),
+                  width: i % 90 == 0 ? 3.5 : (i % 30 == 0 ? 2 : 1),
+                  height: i % 90 == 0 ? 14 : (i % 30 == 0 ? 10 : 6),
                   color: i == 0
-                      ? Colors.red
-                      : (theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.4) ?? Colors.grey),
+                      ? Colors.red.shade700
+                      : (i % 30 == 0
+                          ? goldColor.withValues(alpha: 0.8)
+                          : (isDark ? Colors.grey.shade600 : Colors.grey.shade400)),
                 ),
               ),
             ),
@@ -452,7 +546,7 @@ class _QiblaScreenState extends State<QiblaScreen> with SingleTickerProviderStat
   }
 
   Widget _buildQiblaNeedle(bool isAligned, ThemeData theme) {
-    final Color needleColor = isAligned ? Colors.green.shade600 : Colors.amber.shade700;
+    final Color needleColor = isAligned ? Colors.green.shade500 : const Color(0xFFFFD700);
 
     return Container(
       width: 270,
@@ -461,36 +555,61 @@ class _QiblaScreenState extends State<QiblaScreen> with SingleTickerProviderStat
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Needle Pointer pointing UP towards Qibla
+          // Floating 3D pointer
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Kaaba Icon at top of needle
+              // Kaaba Icon container
               Container(
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(
-                  color: needleColor,
+                  color: isAligned ? Colors.green.shade900 : const Color(0xFF1E3A37),
                   shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isAligned ? Colors.greenAccent : const Color(0xFFFFD700),
+                    width: 2.5,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: needleColor.withValues(alpha: 0.6),
-                      blurRadius: 8,
+                      color: isAligned ? Colors.green.withValues(alpha: 0.6) : Colors.black38,
+                      blurRadius: 10,
+                      spreadRadius: 2,
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.mosque,
-                  size: 22,
-                  color: Colors.white,
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1A1A), // Matte black
+                    borderRadius: BorderRadius.circular(4),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black45, blurRadius: 2, offset: Offset(0, 1)),
+                    ],
+                  ),
+                  child: Stack(
+                    children: [
+                      // Gold Kiswah band
+                      Positioned(
+                        top: 5,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          height: 2.5,
+                          color: const Color(0xFFFFD700), // Gold line
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 2),
-              // Pointer Triangle
+              // Beveled 3D needle painter
               CustomPaint(
-                size: const Size(18, 90),
+                size: const Size(20, 95),
                 painter: _NeedlePainter(color: needleColor),
               ),
-              const SizedBox(height: 105), // Balance distance
+              const SizedBox(height: 105), // Balance spacing to keep center pivot aligned
             ],
           ),
         ],
@@ -608,18 +727,48 @@ class _NeedlePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
+    // Left half (lighter)
+    final paintLeft = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
 
-    final path = Path()
-      ..moveTo(size.width / 2, 0) // Top vertex
-      ..lineTo(size.width, size.height) // Bottom right
-      ..lineTo(size.width / 2, size.height - 10) // Inner notch
-      ..lineTo(0, size.height) // Bottom left
+    // Right half (darker/shaded for 3D effect)
+    final paintRight = Paint()
+      ..color = HSLColor.fromColor(color)
+          .withLightness((HSLColor.fromColor(color).lightness - 0.15).clamp(0.0, 1.0))
+          .toColor()
+      ..style = PaintingStyle.fill;
+
+    // Draw left half of the triangle needle
+    final pathLeft = Path()
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(0, size.height)
+      ..lineTo(size.width / 2, size.height - 12)
       ..close();
 
-    canvas.drawPath(path, paint);
+    // Draw right half of the triangle needle
+    final pathRight = Path()
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(size.width / 2, size.height - 12)
+      ..close();
+
+    // Draw a subtle shadow behind the needle
+    final shadowPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.15)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
+    
+    final shadowPath = Path()
+      ..moveTo(size.width / 2, 4)
+      ..lineTo(2, size.height + 4)
+      ..lineTo(size.width / 2, size.height - 8)
+      ..lineTo(size.width - 2, size.height + 4)
+      ..close();
+    canvas.drawPath(shadowPath, shadowPaint);
+
+    // Draw needle halves
+    canvas.drawPath(pathLeft, paintLeft);
+    canvas.drawPath(pathRight, paintRight);
   }
 
   @override

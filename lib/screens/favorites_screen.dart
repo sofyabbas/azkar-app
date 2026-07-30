@@ -64,6 +64,7 @@ class FavoritesScreen extends StatelessWidget {
                           return ZikrCard(
                             key: ValueKey('fav_zikr_${item.id}'),
                             zikr: item,
+                            index: index + 1,
                           );
                         },
                       ),

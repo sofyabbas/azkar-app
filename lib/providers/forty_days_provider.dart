@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:adhan/adhan.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/forty_days_model.dart';
 
 class FortyDaysProvider with ChangeNotifier {
@@ -10,6 +13,11 @@ class FortyDaysProvider with ChangeNotifier {
   bool _isLoading = true;
   String _errorMessage = '';
   String? _autoCheckInSuccessMessage;
+  
+  StreamSubscription<User?>? _authSubscription;
+  User? _currentUser;
+
+  User? get currentUser => _currentUser;
 
   String? get autoCheckInSuccessMessage => _autoCheckInSuccessMessage;
 
@@ -23,6 +31,7 @@ class FortyDaysProvider with ChangeNotifier {
 
   FortyDaysProvider() {
     _loadState();
+    _setupAuthListener();
   }
 
   Future<void> _loadState() async {
@@ -113,6 +122,17 @@ class FortyDaysProvider with ChangeNotifier {
     if (_state == null) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('fortyDaysState', json.encode(_state!.toJson()));
+    
+    if (_currentUser != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(_currentUser!.uid)
+            .set({'fortyDaysState': _state!.toJson()}, SetOptions(merge: true));
+      } catch (e) {
+        debugPrint("Error saving fortyDaysState to Firestore: $e");
+      }
+    }
     notifyListeners();
   }
 
@@ -274,9 +294,34 @@ class FortyDaysProvider with ChangeNotifier {
         return null;
       }
 
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      ).timeout(const Duration(seconds: 4));
+      // Try fast last known position first
+      Position? position = await Geolocator.getLastKnownPosition();
+      if (position != null) {
+        double minDistance = double.infinity;
+        SavedMosque? closestMosque;
+        
+        for (var mosque in _state!.savedMosques) {
+          double distance = Geolocator.distanceBetween(
+            position.latitude, position.longitude,
+            mosque.latitude, mosque.longitude
+          );
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestMosque = mosque;
+          }
+        }
+
+        if (minDistance <= 150 && closestMosque != null) {
+          return closestMosque;
+        }
+      }
+
+      // Fallback to active location fetching with 10 seconds timeout and medium accuracy
+      position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+        ),
+      ).timeout(const Duration(seconds: 10));
       
       double minDistance = double.infinity;
       SavedMosque? closestMosque;
@@ -307,37 +352,22 @@ class FortyDaysProvider with ChangeNotifier {
     final now = DateTime.now();
     
     final challengePrayers = {
-      'الفجر': {
-        'time': prayerTimes.fajr,
-        'window': 5,
-      },
-      'الظهر': {
-        'time': prayerTimes.dhuhr,
-        'window': 5,
-      },
-      'العصر': {
-        'time': prayerTimes.asr,
-        'window': 5,
-      },
-      'المغرب': {
-        'time': prayerTimes.maghrib,
-        'window': 1,
-      },
-      'العشاء': {
-        'time': prayerTimes.isha,
-        'window': 5,
-      },
+      'الفجر': prayerTimes.fajr,
+      'الظهر': prayerTimes.dhuhr,
+      'العصر': prayerTimes.asr,
+      'المغرب': prayerTimes.maghrib,
+      'العشاء': prayerTimes.isha,
     };
 
     String? activePrayerName;
 
     for (var entry in challengePrayers.entries) {
       final pName = entry.key;
-      final pTime = entry.value['time'] as DateTime;
-      final window = entry.value['window'] as int;
+      final pTime = entry.value;
 
       final diffSeconds = now.difference(pTime).inSeconds;
-      if (diffSeconds >= 0 && diffSeconds <= (window * 60)) {
+      // Window is -15 mins (-900s) before Adhan to +45 mins (2700s) after Adhan
+      if (diffSeconds >= -900 && diffSeconds <= 2700) {
         final log = _state!.todaysPrayers[pName];
         if (log == null || !log.isCompleted) {
           activePrayerName = pName;
@@ -354,5 +384,113 @@ class FortyDaysProvider with ChangeNotifier {
       _autoCheckInSuccessMessage = 'تم إثبات صلاة $activePrayerName جماعة تلقائياً في مسجد "${matchedMosque.name}"! 🎉';
       notifyListeners();
     }
+  }
+
+  void _setupAuthListener() {
+    _authSubscription?.cancel();
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      final bool wasGuest = _currentUser == null && user != null;
+      _currentUser = user;
+
+      if (user != null) {
+        _syncWithFirestore(wasGuest);
+      }
+    });
+  }
+
+  Future<void> _syncWithFirestore(bool wasGuest) async {
+    if (_currentUser == null) return;
+    final uid = _currentUser!.uid;
+
+    try {
+      final docRef = FirebaseFirestore.instance.collection('users').doc(uid);
+      final doc = await docRef.get();
+
+      if (doc.exists) {
+        final data = doc.data();
+        if (data != null && data['fortyDaysState'] != null) {
+          final cloudState = FortyDaysState.fromJson(data['fortyDaysState']);
+          
+          if (_state != null) {
+            final Map<String, SavedMosque> mergedMosques = {};
+            for (var m in _state!.savedMosques) {
+              mergedMosques[m.name] = m;
+            }
+            for (var m in cloudState.savedMosques) {
+              mergedMosques[m.name] = m;
+            }
+
+            bool useCloudProgress = cloudState.currentDayIndex > _state!.currentDayIndex;
+            if (cloudState.currentDayIndex == _state!.currentDayIndex) {
+              final cloudCompleted = cloudState.todaysPrayers.values.where((p) => p.isCompleted).length;
+              final localCompleted = _state!.todaysPrayers.values.where((p) => p.isCompleted).length;
+              if (cloudCompleted > localCompleted) {
+                useCloudProgress = true;
+              }
+            }
+
+            if (useCloudProgress) {
+              _state = FortyDaysState(
+                startDate: cloudState.startDate,
+                currentDayIndex: cloudState.currentDayIndex,
+                todaysPrayers: cloudState.todaysPrayers,
+                savedMosques: mergedMosques.values.toList(),
+                history: cloudState.history,
+                lastUpdatedDate: cloudState.lastUpdatedDate,
+              );
+            } else {
+              _state = FortyDaysState(
+                startDate: _state!.startDate,
+                currentDayIndex: _state!.currentDayIndex,
+                todaysPrayers: _state!.todaysPrayers,
+                savedMosques: mergedMosques.values.toList(),
+                history: _state!.history,
+                lastUpdatedDate: _state!.lastUpdatedDate,
+              );
+            }
+          } else {
+            _state = cloudState;
+          }
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('fortyDaysState', json.encode(_state!.toJson()));
+          await docRef.set({'fortyDaysState': _state!.toJson()}, SetOptions(merge: true));
+        } else {
+          if (_state != null) {
+            await docRef.set({'fortyDaysState': _state!.toJson()}, SetOptions(merge: true));
+          }
+        }
+      } else {
+        if (_state != null) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .set({'fortyDaysState': _state!.toJson()}, SetOptions(merge: true));
+        }
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error syncing fortyDaysState with Firestore: $e");
+    }
+  }
+
+  Future<void> syncData() async {
+    _isLoading = true;
+    _errorMessage = '';
+    notifyListeners();
+    try {
+      await _syncWithFirestore(false);
+    } catch (e) {
+      _errorMessage = 'حدث خطأ أثناء مزامنة البيانات: $e';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 }

@@ -27,6 +27,62 @@ class FortyDaysScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('مشروع 40 يوم', style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            icon: Icon(
+              provider.currentUser != null ? Icons.cloud_sync : Icons.cloud_off,
+              color: provider.currentUser != null ? Colors.white : Colors.white60,
+            ),
+            tooltip: provider.currentUser != null ? 'مزامنة سحابية' : 'مزامنة غير مفعلة (سجل الدخول)',
+            onPressed: () async {
+              if (provider.currentUser == null) {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('المزامنة السحابية', textAlign: TextAlign.right),
+                    content: const Text(
+                      'المزامنة السحابية غير نشطة. يرجى تسجيل الدخول بحساب جوجل من صفحة "الحساب" لتتمكن من مزامنة تقدمك والمساجد المحفوظة عبر أجهزتك المختلفة.',
+                      textAlign: TextAlign.right,
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('حسناً'),
+                      ),
+                    ],
+                  ),
+                );
+                return;
+              }
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('جاري مزامنة بيانات التحدي سحابياً...'),
+                  duration: Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+              await provider.syncData();
+              if (context.mounted) {
+                if (provider.errorMessage.isNotEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(provider.errorMessage),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('تمت مزامنة بيانات التحدي والمساجد بنجاح! ☁️'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),

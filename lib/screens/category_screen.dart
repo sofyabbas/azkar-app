@@ -158,6 +158,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
             return ZikrCard(
               zikr: zikr,
               categoryId: widget.category.id,
+              index: index + 1,
             );
           },
         ),

@@ -9,6 +9,7 @@ import 'providers/azkar_provider.dart';
 import 'providers/prayer_provider.dart';
 import 'providers/forty_days_provider.dart';
 import 'providers/stats_provider.dart';
+import 'providers/quit_smoking_provider.dart';
 import 'screens/main_screen.dart';
 import 'services/notification_service.dart';
 
@@ -24,6 +25,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => PrayerProvider()),
         ChangeNotifierProvider(create: (_) => FortyDaysProvider()),
         ChangeNotifierProvider(create: (_) => StatsProvider()),
+        ChangeNotifierProvider(create: (_) => QuitSmokingProvider()),
       ],
       child: const AzkarApp(),
     ),

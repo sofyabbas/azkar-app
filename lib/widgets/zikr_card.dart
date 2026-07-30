@@ -8,11 +8,13 @@ import '../providers/stats_provider.dart';
 class ZikrCard extends StatefulWidget {
   final ZikrItem zikr;
   final String? categoryId;
+  final int? index;
 
   const ZikrCard({
     super.key,
     required this.zikr,
     this.categoryId,
+    this.index,
   });
 
   @override
@@ -22,6 +24,7 @@ class ZikrCard extends StatefulWidget {
 class _ZikrCardState extends State<ZikrCard> {
   late int currentCount;
   late int targetCount;
+  DateTime? _lastTapTime;
 
   @override
   void initState() {
@@ -79,6 +82,12 @@ class _ZikrCardState extends State<ZikrCard> {
   }
 
   void _decrementCount() {
+    final now = DateTime.now();
+    if (_lastTapTime != null && now.difference(_lastTapTime!).inMilliseconds < 400) {
+      return; // Throttling: ignore rapid taps
+    }
+    _lastTapTime = now;
+
     if (currentCount > 0) {
       setState(() {
         currentCount--;
@@ -233,7 +242,7 @@ class _ZikrCardState extends State<ZikrCard> {
                       );
                     },
                   ),
-                  if (widget.zikr.count > 1)
+                  if (widget.index != null)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
@@ -241,7 +250,7 @@ class _ZikrCardState extends State<ZikrCard> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        'التكرار: ${widget.zikr.count}',
+                        'الذكر #${widget.index}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
