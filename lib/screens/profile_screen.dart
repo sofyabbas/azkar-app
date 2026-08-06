@@ -82,26 +82,7 @@ class ProfileScreen extends StatelessWidget {
                           letterSpacing: 1.1,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'مطوّر هذا التطبيق:',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'صوفي بن عباس العرجي',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFFFD700),
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 14),
+                       const SizedBox(height: 14),
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
@@ -110,7 +91,7 @@ class ProfileScreen extends StatelessWidget {
                           border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                         ),
                         child: const Text(
-                          'قد جعله صدقةً جاريةً على روح أمّه وأبيه رحمهما الله تعالى ورزقهما الفردوس الأعلى من الجنة.',
+                          'هذا التطبيق صدقةٌ جاريةٌ، نسأل الله تعالى أن يتقبله وأن يرزقنا وإياكم الفردوس الأعلى من الجنة.',
                           style: TextStyle(
                             fontSize: 15,
                             height: 1.6,
@@ -136,7 +117,7 @@ class ProfileScreen extends StatelessWidget {
                         onPressed: () {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('جزاك الله خيراً وتقبل منك ومنهم الصالحات 🤲'),
+                              content: Text('جزاك الله خيراً وتقبل منك ومن الجميع الصالحات 🤲'),
                               duration: Duration(seconds: 3),
                               behavior: SnackBarBehavior.floating,
                             ),
@@ -144,7 +125,7 @@ class ProfileScreen extends StatelessWidget {
                         },
                         icon: const Icon(Icons.volunteer_activism, size: 20, color: primaryColor),
                         label: const Text(
-                          'نسألك الدعاء لهما بالمغفرة والرحمة 🤲',
+                          'نسألك الدعاء لموتانا وموتى المسلمين بالمغفرة والرحمة 🤲',
                           style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryColor),
                         ),
                         style: ElevatedButton.styleFrom(

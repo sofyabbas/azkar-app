@@ -2,14 +2,21 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  FirebaseAuth? get _auth {
+    try {
+      return FirebaseAuth.instance;
+    } catch (_) {
+      return null;
+    }
+  }
+
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   // Get current user stream
-  Stream<User?> get userStream => _auth.authStateChanges();
+  Stream<User?> get userStream => _auth?.authStateChanges() ?? const Stream.empty();
 
   // Get current user
-  User? get currentUser => _auth.currentUser;
+  User? get currentUser => _auth?.currentUser;
 
   // Sign in with Google
   Future<UserCredential?> signInWithGoogle() async {
@@ -31,7 +38,7 @@ class AuthService {
       );
 
       // Once signed in, return the UserCredential
-      return await _auth.signInWithCredential(credential);
+      return await _auth?.signInWithCredential(credential);
     } catch (e) {
       print("Error signing in with Google: $e");
       rethrow;
@@ -41,6 +48,6 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     await _googleSignIn.signOut();
-    await _auth.signOut();
+    await _auth?.signOut();
   }
 }

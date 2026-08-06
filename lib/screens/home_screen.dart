@@ -10,8 +10,6 @@ import 'forty_days_screen.dart';
 import 'favorites_screen.dart';
 import 'qibla_screen.dart';
 import 'tasbeeh_screen.dart';
-import '../providers/quit_smoking_provider.dart';
-import 'quit_smoking_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -141,8 +139,7 @@ class HomeScreen extends StatelessWidget {
         _buildFortyDaysCard(context),
         const SizedBox(height: 12),
 
-        _buildQuitSmokingCard(context),
-        const SizedBox(height: 12),
+
 
         // Action Cards Row (المسبحة الذكية | القبلة | المفضلة)
         Row(
@@ -256,88 +253,6 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildQuitSmokingCard(BuildContext context) {
-    const primaryColor = Color(0xFF1E3A37);
-
-    return Consumer<QuitSmokingProvider>(
-      builder: (context, provider, child) {
-        final state = provider.state;
-        final isConfigured = state?.isConfigured ?? false;
-        
-        String subtitle = 'ابدأ رحلة تطهير رئتيك واسترداد صحتك';
-        if (isConfigured) {
-          final health = (provider.lungHealth * 100).toStringAsFixed(0);
-          subtitle = 'صحة الرئة الحالية: $health% | تم تجنب ${provider.avoidedCigarettes} سيجارة';
-        }
-
-        return Card(
-          elevation: 2,
-          margin: EdgeInsets.zero,
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: primaryColor.withValues(alpha: 0.2)),
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const QuitSmokingScreen()),
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFE5ECEB),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.health_and_safety,
-                      color: primaryColor,
-                      size: 26,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'برنامج الإقلاع عن التدخين (رئة نقية)',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: primaryColor,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          subtitle,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.arrow_forward_ios_rounded, color: primaryColor, size: 16),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }

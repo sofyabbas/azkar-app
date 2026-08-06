@@ -169,6 +169,48 @@ class FortyDaysProvider with ChangeNotifier {
     await _saveState();
   }
 
+  Future<void> togglePastDayPrayer(int historyIndex, String prayerName) async {
+    if (_state == null || historyIndex < 0 || historyIndex >= _state!.history.length) return;
+
+    final updatedHistory = List<DailyProgress>.from(_state!.history);
+    final dayProgress = updatedHistory[historyIndex];
+    
+    final updatedPrayers = Map<String, PrayerLog>.from(dayProgress.prayers);
+    final currentLog = updatedPrayers[prayerName];
+    final wasCompleted = currentLog?.isCompleted ?? false;
+    
+    updatedPrayers[prayerName] = PrayerLog(
+      prayerName: prayerName,
+      isCompleted: !wasCompleted,
+      completedAt: !wasCompleted ? DateTime.now() : null,
+      mosqueName: !wasCompleted ? 'تعديل يدوي' : null,
+      verifiedByGps: false,
+    );
+
+    // Re-evaluate if all 5 prayers are completed
+    final allCompleted = updatedPrayers.values.length == 5 && 
+        updatedPrayers.values.every((p) => p.isCompleted);
+
+    updatedHistory[historyIndex] = DailyProgress(
+      dayIndex: dayProgress.dayIndex,
+      date: dayProgress.date,
+      prayers: updatedPrayers,
+      isSuccess: allCompleted,
+    );
+
+    _state = FortyDaysState(
+      startDate: _state!.startDate,
+      currentDayIndex: _state!.currentDayIndex,
+      todaysPrayers: _state!.todaysPrayers,
+      savedMosques: _state!.savedMosques,
+      mosqueLocation: _state!.mosqueLocation,
+      history: updatedHistory,
+      lastUpdatedDate: _state!.lastUpdatedDate,
+    );
+
+    await _saveState();
+  }
+
   Future<void> saveMosqueLocation(String name) async {
     _isLoading = true;
     _errorMessage = '';
@@ -395,15 +437,19 @@ class FortyDaysProvider with ChangeNotifier {
   }
 
   void _setupAuthListener() {
-    _authSubscription?.cancel();
-    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((User? user) {
-      final bool wasGuest = _currentUser == null && user != null;
-      _currentUser = user;
+    try {
+      _authSubscription?.cancel();
+      _authSubscription = FirebaseAuth.instance.authStateChanges().listen((User? user) {
+        final bool wasGuest = _currentUser == null && user != null;
+        _currentUser = user;
 
-      if (user != null) {
-        _syncWithFirestore(wasGuest);
-      }
-    });
+        if (user != null) {
+          _syncWithFirestore(wasGuest);
+        }
+      });
+    } catch (e) {
+      debugPrint("Firebase Auth not initialized: $e");
+    }
   }
 
   Future<void> _syncWithFirestore(bool wasGuest) async {

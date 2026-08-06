@@ -310,23 +310,27 @@ class StatsProvider with ChangeNotifier {
   }
 
   void _setupAuthListener() {
-    _authSubscription?.cancel();
-    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((User? user) {
-      final bool wasGuest = _currentUser == null && user != null;
-      final bool wasUser = _currentUser != null && user == null;
-      _currentUser = user;
+    try {
+      _authSubscription?.cancel();
+      _authSubscription = FirebaseAuth.instance.authStateChanges().listen((User? user) {
+        final bool wasGuest = _currentUser == null && user != null;
+        final bool wasUser = _currentUser != null && user == null;
+        _currentUser = user;
 
-      if (user != null) {
-        _syncWithFirestore(wasGuest && _hasLoadedAsGuest);
-        _hasLoadedAsGuest = false;
-      } else {
-        _hasLoadedAsGuest = true;
-        if (wasUser) {
-          // Logged out: Clear user stats from local storage so next guest has a clean session
-          resetLocalStats();
+        if (user != null) {
+          _syncWithFirestore(wasGuest && _hasLoadedAsGuest);
+          _hasLoadedAsGuest = false;
+        } else {
+          _hasLoadedAsGuest = true;
+          if (wasUser) {
+            // Logged out: Clear user stats from local storage so next guest has a clean session
+            resetLocalStats();
+          }
         }
-      }
-    });
+      });
+    } catch (e) {
+      debugPrint("Firebase Auth not initialized: $e");
+    }
   }
 
   Future<void> _syncWithFirestore(bool mergeGuestStats) async {

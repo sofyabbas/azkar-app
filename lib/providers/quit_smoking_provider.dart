@@ -42,15 +42,19 @@ class QuitSmokingProvider with ChangeNotifier {
   }
 
   void _setupAuthListener() {
-    _authSubscription?.cancel();
-    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((User? user) {
-      final bool wasGuest = _currentUser == null && user != null;
-      _currentUser = user;
+    try {
+      _authSubscription?.cancel();
+      _authSubscription = FirebaseAuth.instance.authStateChanges().listen((User? user) {
+        final bool wasGuest = _currentUser == null && user != null;
+        _currentUser = user;
 
-      if (user != null) {
-        _syncWithFirestore(wasGuest);
-      }
-    });
+        if (user != null) {
+          _syncWithFirestore(wasGuest);
+        }
+      });
+    } catch (e) {
+      debugPrint("Firebase Auth not initialized: $e");
+    }
   }
 
   Future<void> _syncWithFirestore(bool wasGuest) async {

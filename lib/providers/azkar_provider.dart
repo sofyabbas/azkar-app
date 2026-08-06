@@ -35,18 +35,22 @@ class AzkarProvider with ChangeNotifier {
   }
 
   void _setupAuthListener() {
-    FirebaseAuth.instance.authStateChanges().listen((User? user) {
-      final bool wasGuest = _currentUser == null && user != null;
-      final bool wasUser = _currentUser != null && user == null;
-      _currentUser = user;
+    try {
+      FirebaseAuth.instance.authStateChanges().listen((User? user) {
+        final bool wasGuest = _currentUser == null && user != null;
+        final bool wasUser = _currentUser != null && user == null;
+        _currentUser = user;
 
-      if (user != null) {
-        _syncWithFirestore(wasGuest);
-      } else if (wasUser) {
-        // Logged out: Restore local guest statistics
-        _loadLocalGuestStatistics();
-      }
-    });
+        if (user != null) {
+          _syncWithFirestore(wasGuest);
+        } else if (wasUser) {
+          // Logged out: Restore local guest statistics
+          _loadLocalGuestStatistics();
+        }
+      });
+    } catch (e) {
+      debugPrint("Firebase Auth not initialized: $e");
+    }
   }
 
   Future<void> _loadLocalGuestStatistics() async {

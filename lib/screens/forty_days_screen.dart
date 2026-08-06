@@ -153,79 +153,25 @@ class FortyDaysScreen extends StatelessWidget {
           _buildBadgesSection(state, theme, displayMaxStreak),
           const SizedBox(height: 16),
           
-          // Mosque Locations Setup
-          Card(
-            elevation: 1.5,
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.location_on, color: theme.colorScheme.primary, size: 28),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'مساجدي المحفوظة',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 24),
-                  if (state.savedMosques.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text(
-                        'لم تقم بحفظ أي مسجد بعد. احفظ موقع المساجد التي تصلي فيها لتتمكن من إثبات صلاتك بالـ GPS.',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13, height: 1.4),
-                      ),
-                    )
-                  else
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: state.savedMosques.length,
-                      itemBuilder: (context, index) {
-                        final mosque = state.savedMosques[index];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  mosque.name,
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                                onPressed: () {
-                                  provider.deleteMosque(mosque.name);
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.colorScheme.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: () => _showAddMosqueDialog(context, provider),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('حفظ موقع المسجد الحالي'),
-                    ),
-                  ),
-                ],
+          // Collapsible Saved Mosques Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                foregroundColor: theme.colorScheme.primary,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.15)),
+                ),
+              ),
+              onPressed: () => _showSavedMosquesBottomSheet(context, provider, state, theme),
+              icon: const Icon(Icons.mosque, size: 22),
+              label: const Text(
+                'المساجد المحفوظة وإحصائياتها 🕌',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
               ),
             ),
           ),
@@ -787,6 +733,326 @@ class FortyDaysScreen extends StatelessWidget {
                   }),
                 ],
               ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Map<String, int> _getMosqueStats(FortyDaysState state, String mosqueName) {
+    int total = 0;
+    final Map<String, int> breakdown = {
+      'الفجر': 0,
+      'الظهر': 0,
+      'العصر': 0,
+      'المغرب': 0,
+      'العشاء': 0,
+    };
+
+    // Check today's logged prayers
+    state.todaysPrayers.forEach((pName, log) {
+      if (log.isCompleted && log.mosqueName == mosqueName) {
+        total++;
+        breakdown[pName] = (breakdown[pName] ?? 0) + 1;
+      }
+    });
+
+    // Check history
+    for (var progress in state.history) {
+      progress.prayers.forEach((pName, log) {
+        if (log.isCompleted && log.mosqueName == mosqueName) {
+          total++;
+          breakdown[pName] = (breakdown[pName] ?? 0) + 1;
+        }
+      });
+    }
+
+    return {
+      'total': total,
+      'الفجر': breakdown['الفجر'] ?? 0,
+      'الظهر': breakdown['الظهر'] ?? 0,
+      'العصر': breakdown['العصر'] ?? 0,
+      'المغرب': breakdown['المغرب'] ?? 0,
+      'العشاء': breakdown['العشاء'] ?? 0,
+    };
+  }
+
+  void _showMosqueStatsDialog(
+    BuildContext context,
+    FortyDaysState state,
+    SavedMosque mosque,
+    ThemeData theme,
+  ) {
+    final stats = _getMosqueStats(state, mosque.name);
+    final total = stats['total'] ?? 0;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(Icons.mosque, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  mosque.name,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Location Details Box
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'الموقع الجغرافي:',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'خط العرض: ${mosque.latitude.toStringAsFixed(6)}',
+                        style: const TextStyle(fontSize: 14, fontFamily: 'monospace'),
+                      ),
+                      Text(
+                        'خط الطول: ${mosque.longitude.toStringAsFixed(6)}',
+                        style: const TextStyle(fontSize: 14, fontFamily: 'monospace'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Total Prayers Badge
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'إجمالي الصلوات المؤداة فيه:',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '$total صلاة',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+
+                // Breakdown list
+                const Text(
+                  'تفاصيل الصلوات:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.grey),
+                  textAlign: TextAlign.right,
+                ),
+                const SizedBox(height: 8),
+                ...['الفجر', 'الظهر', 'العصر', 'المغرب', 'العشاء'].map((pName) {
+                  final count = stats[pName] ?? 0;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          pName,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        Text(
+                          '$count فرض',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: count > 0 ? theme.colorScheme.primary : Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إغلاق', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showSavedMosquesBottomSheet(
+    BuildContext context,
+    FortyDaysProvider provider,
+    FortyDaysState state,
+    ThemeData theme,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.4,
+          maxChildSize: 0.85,
+          expand: false,
+          builder: (context, scrollController) {
+            return AnimatedBuilder(
+              animation: provider,
+              builder: (context, _) {
+                final currentState = provider.state!;
+                
+                return Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Icon(Icons.location_on, color: theme.colorScheme.primary, size: 28),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'المساجد المحفوظة',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'اضغط على اسم المسجد لعرض إحصائياته وموقعه الجغرافي.',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                      ),
+                      const Divider(height: 24),
+                      
+                      Expanded(
+                        child: currentState.savedMosques.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'لم تقم بحفظ أي مسجد بعد. احفظ موقع المساجد الحالية للتحقق التلقائي.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                                ),
+                              )
+                            : ListView.builder(
+                                controller: scrollController,
+                                itemCount: currentState.savedMosques.length,
+                                itemBuilder: (context, index) {
+                                  final mosque = currentState.savedMosques[index];
+                                  return Card(
+                                    margin: const EdgeInsets.symmetric(vertical: 6.0),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      side: BorderSide(color: Colors.grey[200]!),
+                                    ),
+                                    child: ListTile(
+                                      leading: CircleAvatar(
+                                        backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                                        child: Icon(Icons.mosque, color: theme.colorScheme.primary, size: 20),
+                                      ),
+                                      title: Text(
+                                        mosque.name,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                      ),
+                                      subtitle: const Text(
+                                        'اضغط للتفاصيل والإحصائيات 📊',
+                                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                                      ),
+                                      onTap: () {
+                                        _showMosqueStatsDialog(context, currentState, mosque, theme);
+                                      },
+                                      trailing: IconButton(
+                                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                        onPressed: () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (dialogCtx) => AlertDialog(
+                                              title: const Text('حذف المسجد', textAlign: TextAlign.right),
+                                              content: Text('هل تريد بالتأكيد حذف مسجد "${mosque.name}" من المساجد المحفوظة؟', textAlign: TextAlign.right),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(dialogCtx),
+                                                  child: const Text('إلغاء'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () {
+                                                    provider.deleteMosque(mosque.name);
+                                                    Navigator.pop(dialogCtx);
+                                                  },
+                                                  child: const Text('حذف', style: TextStyle(color: Colors.red)),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                      
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () async {
+                            _showAddMosqueDialog(context, provider);
+                          },
+                          icon: const Icon(Icons.add, size: 20),
+                          label: const Text(
+                            'حفظ موقع المسجد الحالي',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             );
           },
         );
