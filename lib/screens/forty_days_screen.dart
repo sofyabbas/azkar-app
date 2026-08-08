@@ -2,7 +2,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart' as intl;
+import 'package:adhan/adhan.dart';
 import '../providers/forty_days_provider.dart';
+import '../providers/prayer_provider.dart';
 import '../models/forty_days_model.dart';
 
 class FortyDaysScreen extends StatelessWidget {
@@ -36,9 +38,28 @@ class FortyDaysScreen extends StatelessWidget {
     return maxStreak;
   }
 
+  DateTime? _getPrayerTime(PrayerTimes? prayerTimes, String prayerName) {
+    if (prayerTimes == null) return null;
+    switch (prayerName) {
+      case 'الفجر':
+        return prayerTimes.fajr;
+      case 'الظهر':
+        return prayerTimes.dhuhr;
+      case 'العصر':
+        return prayerTimes.asr;
+      case 'المغرب':
+        return prayerTimes.maghrib;
+      case 'العشاء':
+        return prayerTimes.isha;
+      default:
+        return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<FortyDaysProvider>(context);
+    final prayerProvider = Provider.of<PrayerProvider>(context);
     final theme = Theme.of(context);
     
     if (provider.isLoading) {
@@ -225,6 +246,25 @@ class FortyDaysScreen extends StatelessWidget {
                             icon: Icon(Icons.location_on_outlined, color: theme.colorScheme.secondary),
                             tooltip: 'إثبات بالـ GPS',
                             onPressed: () async {
+                              final prayerTimes = prayerProvider.prayerTimes;
+                              if (prayerTimes == null) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('الرجاء الانتظار حتى تحميل مواقيت الصلاة للتحقق من دخول الوقت.')),
+                                  );
+                                }
+                                return;
+                              }
+                              final pTime = _getPrayerTime(prayerTimes, pName);
+                              if (pTime != null && DateTime.now().isBefore(pTime)) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('لم يحن وقت صلاة $pName بعد. لا يمكن الإثبات قبل دخول الوقت.')),
+                                  );
+                                }
+                                return;
+                              }
+
                               final matchedMosque = await provider.verifyLocationWithGps();
                               if (matchedMosque != null) {
                                 await provider.markPrayerCompleted(pName, byGps: true, mosqueName: matchedMosque.name);
@@ -242,6 +282,25 @@ class FortyDaysScreen extends StatelessWidget {
                             icon: Icon(Icons.check_circle_outline, color: theme.colorScheme.primary),
                             tooltip: 'إثبات يدوي',
                             onPressed: () async {
+                              final prayerTimes = prayerProvider.prayerTimes;
+                              if (prayerTimes == null) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('الرجاء الانتظار حتى تحميل مواقيت الصلاة للتحقق من دخول الوقت.')),
+                                  );
+                                }
+                                return;
+                              }
+                              final pTime = _getPrayerTime(prayerTimes, pName);
+                              if (pTime != null && DateTime.now().isBefore(pTime)) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('لم يحن وقت صلاة $pName بعد. لا يمكن الإثبات قبل دخول الوقت.')),
+                                  );
+                                }
+                                return;
+                              }
+
                               final closeMosque = await provider.verifyLocationGpsSilently();
                               await provider.markPrayerCompleted(
                                 pName,

@@ -416,8 +416,8 @@ class FortyDaysProvider with ChangeNotifier {
       final pTime = entry.value;
 
       final diffSeconds = now.difference(pTime).inSeconds;
-      // Window is -15 mins (-900s) before Adhan to +45 mins (2700s) after Adhan
-      if (diffSeconds >= -900 && diffSeconds <= 2700) {
+      // Window is from Adhan (0s) to +45 mins (2700s) after Adhan
+      if (diffSeconds >= 0 && diffSeconds <= 2700) {
         final log = _state!.todaysPrayers[pName];
         if (log == null || !log.isCompleted) {
           activePrayerName = pName;
