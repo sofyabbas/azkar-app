@@ -313,14 +313,17 @@ class _QiblaScreenState extends State<QiblaScreen> with SingleTickerProviderStat
                       color: isAligned ? Colors.white : theme.colorScheme.onPrimaryContainer,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      isAligned
-                          ? 'أنت تتجه نحو القبلة الآن 🕋'
-                          : 'قم بتدوير الهاتف نحو مؤشر القبلة',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: isAligned ? Colors.white : theme.colorScheme.onPrimaryContainer,
+                    Flexible(
+                      child: Text(
+                        isAligned
+                            ? 'أنت تتجه نحو القبلة الآن 🕋'
+                            : 'قم بتدوير الهاتف نحو مؤشر القبلة',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: isAligned ? Colors.white : theme.colorScheme.onPrimaryContainer,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ],
@@ -403,17 +406,22 @@ class _QiblaScreenState extends State<QiblaScreen> with SingleTickerProviderStat
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _buildAngleInfoTile(
-                    theme: theme,
-                    title: 'زاوية القبلة',
-                    value: '${qiblaAngle.toStringAsFixed(1)}°',
-                    icon: Icons.mosque_outlined,
+                  Expanded(
+                    child: _buildAngleInfoTile(
+                      theme: theme,
+                      title: 'زاوية القبلة',
+                      value: '${qiblaAngle.toStringAsFixed(1)}°',
+                      icon: Icons.mosque_outlined,
+                    ),
                   ),
-                  _buildAngleInfoTile(
-                    theme: theme,
-                    title: 'اتجاه البوصلة',
-                    value: '${headingAngle.toStringAsFixed(1)}°',
-                    icon: Icons.explore_outlined,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildAngleInfoTile(
+                      theme: theme,
+                      title: 'اتجاه البوصلة',
+                      value: '${headingAngle.toStringAsFixed(1)}°',
+                      icon: Icons.explore_outlined,
+                    ),
                   ),
                 ],
               ),
@@ -624,8 +632,7 @@ class _QiblaScreenState extends State<QiblaScreen> with SingleTickerProviderStat
     required IconData icon,
   }) {
     return Container(
-      width: 140,
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),

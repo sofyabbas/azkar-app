@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/stats_provider.dart';
 import '../providers/azkar_provider.dart';
@@ -8,206 +8,147 @@ class StatisticsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final statsProvider = Provider.of<StatsProvider>(context);
     final azkarProvider = Provider.of<AzkarProvider>(context);
 
-    final greenColor = theme.colorScheme.primary;
+    const primaryColor = Color(0xFF1E3A37);
+    const accentColor = Color(0xFF4CAF7D);
+
+    final readCategories = azkarProvider.categories.where((category) {
+      final stat = statsProvider.categoryStats[category.id];
+      return stat != null && (stat.readCount > 0 || stat.itemsReadCount > 0);
+    }).toList();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'احصائيات',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh, color: greenColor),
-            tooltip: 'إعادة ضبط الإحصائيات',
-            onPressed: () => _confirmReset(context, statsProvider),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Top Overview Card
-            Card(
-              elevation: 3,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  children: [
-                    Text(
-                      'عدد الأذكار الكلي',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      '${statsProvider.totalAzkarCount}',
-                      style: TextStyle(
-                        fontSize: 44,
-                        fontWeight: FontWeight.bold,
-                        color: greenColor,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Row: Daily Azkar vs Forty Days
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildOverviewColumn(
-                          context,
-                          'أذكار اليوم والليلة',
-                          '${statsProvider.dailyAzkarCount}',
-                          greenColor,
-                        ),
-                        _buildOverviewColumn(
-                          context,
-                          'الأربعينات النبوية',
-                          '${statsProvider.fortyDaysCount}',
-                          greenColor,
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 20),
-                    Divider(color: theme.dividerColor, height: 1),
-                    const SizedBox(height: 16),
-
-                    // Total Time Footer
-                    Text(
-                      'الوقت الكلي في أذكار التطبيق',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      StatsProvider.formatDuration(statsProvider.totalTimeSeconds),
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: greenColor,
-                      ),
-                      textDirection: TextDirection.rtl,
-                    ),
-                  ],
+      backgroundColor: const Color(0xFFF4F6F5),
+      body: CustomScrollView(
+        slivers: [
+          // ── Hero AppBar ──────────────────────────────────────────────────
+          SliverAppBar(
+            expandedHeight: 200,
+            pinned: true,
+            backgroundColor: primaryColor,
+            foregroundColor: Colors.white,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.restart_alt_rounded),
+                tooltip: 'إعادة ضبط الإحصائيات',
+                onPressed: () => _confirmReset(context, statsProvider),
+              ),
+              const SizedBox(width: 4),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF1E3A37), Color(0xFF2D5A52)],
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Grid of Actual Categories
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.95,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: azkarProvider.categories.length,
-              itemBuilder: (context, index) {
-                final category = azkarProvider.categories[index];
-                final stat = statsProvider.categoryStats[category.id] ?? CategoryStat();
-
-                return Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.fromLTRB(20, 56, 20, 0),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          category.title,
-                          style: theme.textTheme.titleMedium?.copyWith(
+                          '${statsProvider.totalAzkarCount}',
+                          style: const TextStyle(
+                            fontSize: 64,
                             fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            height: 1.0,
                           ),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        Column(
-                          children: [
-                            Text(
-                              'عدد مرات القراءة',
-                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${stat.readCount}',
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                        Column(
-                          children: [
-                            Text(
-                              'الأذكار المقروءة',
-                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${stat.itemsReadCount}',
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
+                        const SizedBox(height: 4),
                         Text(
-                          StatsProvider.formatDuration(stat.timeSpentSeconds),
+                          'إجمالي الأذكار المقروءة',
                           style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: greenColor,
+                            fontSize: 14,
+                            color: Colors.white.withValues(alpha: 0.75),
+                            letterSpacing: 0.5,
                           ),
-                          textDirection: TextDirection.rtl,
-                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
                   ),
-                );
-              },
+                ),
+              ),
+              title: const Text(
+                'إحصائياتي',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              centerTitle: true,
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOverviewColumn(BuildContext context, String label, String value, Color color) {
-    final theme = Theme.of(context);
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: color,
+
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Quick Stats Row ──────────────────────────────────────
+                  Row(
+                    children: [
+                      _StatCard(
+                        icon: Icons.auto_awesome_mosaic_rounded,
+                        label: 'أذكار اليوم والليلة',
+                        value: '${statsProvider.dailyAzkarCount}',
+                        color: accentColor,
+                      ),
+                      const SizedBox(width: 12),
+                      _StatCard(
+                        icon: Icons.emoji_events_rounded,
+                        label: 'الأربعينات النبوية',
+                        value: '${statsProvider.fortyDaysCount}',
+                        color: const Color(0xFFE67E22),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // ── Time Card ────────────────────────────────────────────
+                  _TimeCard(
+                    duration: StatsProvider.formatDuration(statsProvider.totalTimeSeconds),
+                    primaryColor: primaryColor,
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // ── Section Header ───────────────────────────────────────
+                  const Padding(
+                    padding: EdgeInsets.only(right: 4, bottom: 12),
+                    child: Text(
+                      'تفاصيل قراءة الأذكار',
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E3A37),
+                      ),
+                    ),
+                  ),
+
+                  // ── Categories List ──────────────────────────────────────
+                  if (readCategories.isEmpty)
+                    const _EmptyStats()
+                  else
+                    ...readCategories.map((category) {
+                      final stat = statsProvider.categoryStats[category.id] ?? CategoryStat();
+                      return _CategoryCard(
+                        title: category.title,
+                        stat: stat,
+                        primaryColor: primaryColor,
+                        accentColor: accentColor,
+                      );
+                    }),
+
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
           ),
         ],
@@ -219,23 +160,343 @@ class StatisticsScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('تأكيد التصفير', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text('هل أنت متأكد من إعادة ضبط وتصفير الإحصائيات؟'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red),
+            SizedBox(width: 8),
+            Text('تأكيد التصفير', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text('هل أنت متأكد من إعادة ضبط وتصفير جميع الإحصائيات؟'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+            child: const Text('إلغاء'),
           ),
-          ElevatedButton(
+          ElevatedButton.icon(
             onPressed: () {
               statsProvider.resetStats();
               Navigator.of(ctx).pop();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('تم إعادة ضبط الإحصائيات بنجاح.')),
+                const SnackBar(content: Text('تم إعادة ضبط الإحصائيات.')),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('تصفير', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: const Icon(Icons.delete_forever_rounded, size: 18),
+            label: const Text('تصفير'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Widgets ──────────────────────────────────────────────────────────────────
+
+class _StatCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.12),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey[600],
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TimeCard extends StatelessWidget {
+  final String duration;
+  final Color primaryColor;
+
+  const _TimeCard({required this.duration, required this.primaryColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerRight,
+          end: Alignment.centerLeft,
+          colors: [primaryColor, const Color(0xFF2D5A52)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.timer_outlined, color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'الوقت الكلي في الأذكار',
+                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.75)),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                duration,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+                textDirection: TextDirection.rtl,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryCard extends StatelessWidget {
+  final String title;
+  final CategoryStat stat;
+  final Color primaryColor;
+  final Color accentColor;
+
+  const _CategoryCard({
+    required this.title,
+    required this.stat,
+    required this.primaryColor,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isComplete = stat.readCount > 0;
+    final Color badgeColor = isComplete ? accentColor : const Color(0xFFE67E22);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isComplete ? Icons.check_circle_rounded : Icons.pending_rounded,
+                    color: badgeColor,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: primaryColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                _InfoChip(
+                  label: 'مرات الإكمال',
+                  value: '${stat.readCount}',
+                  color: accentColor,
+                ),
+                const SizedBox(width: 8),
+                _InfoChip(
+                  label: 'أذكار مقروءة',
+                  value: '${stat.itemsReadCount}',
+                  color: primaryColor,
+                ),
+                const SizedBox(width: 8),
+                _InfoChip(
+                  label: 'الوقت',
+                  value: StatsProvider.formatDuration(stat.timeSpentSeconds),
+                  color: const Color(0xFF7F8C8D),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _InfoChip({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.8)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyStats extends StatelessWidget {
+  const _EmptyStats();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.auto_graph_rounded, size: 64, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(
+            'لا توجد إحصائيات بعد',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'ابدأ بقراءة الأذكار\nوستظهر إحصائياتك هنا 📊',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: Colors.grey[400], height: 1.6),
           ),
         ],
       ),

@@ -27,6 +27,7 @@ class AzkarProvider with ChangeNotifier {
   Set<String> get favoriteCategoryIds => _favoriteCategoryIds;
   Set<String> get favoriteZikrIds => _favoriteZikrIds;
   double get fontSize => _fontSize;
+  User? get currentUser => _currentUser;
 
   AzkarProvider() {
     _loadAzkarData();

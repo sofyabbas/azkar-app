@@ -15,12 +15,16 @@ class ProfileScreen extends StatelessWidget {
     const primaryColor = Color(0xFF1E3A37);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF6FAF9),
       appBar: AppBar(
-        title: const Text('حول التطبيق والحساب', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('حسابي', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.bar_chart),
-            tooltip: 'الإحصائيات',
+            icon: const Icon(Icons.bar_chart_rounded),
+            tooltip: 'الإحصائيات التفصيلية',
             onPressed: () {
               Navigator.push(
                 context,
@@ -38,102 +42,96 @@ class ProfileScreen extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.all(20.0),
             children: [
-              // SADAQAH JARIYAH & DEVELOPER CARD (صدقة جارية)
-              Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1E3A37), Color(0xFF2B524E)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF1E3A37).withValues(alpha: 0.3),
-                      blurRadius: 15,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
+              // Sleek Profile Card
+              Card(
+                elevation: 2,
+                shadowColor: Colors.black.withValues(alpha: 0.05),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                color: Colors.white,
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
                   child: Column(
                     children: [
-                      // Glowing Heart / Hands Icon
+                      // Avatar
                       Container(
-                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white.withValues(alpha: 0.15),
+                          border: Border.all(color: primaryColor.withValues(alpha: 0.15), width: 3),
                         ),
-                        child: const Icon(
-                          Icons.favorite_rounded,
-                          size: 42,
-                          color: Color(0xFFFFD700), // Soft gold
+                        child: CircleAvatar(
+                          radius: 44,
+                          backgroundColor: primaryColor.withValues(alpha: 0.08),
+                          backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
+                          child: user?.photoURL == null
+                              ? const Icon(Icons.person_rounded, size: 44, color: primaryColor)
+                              : null,
                         ),
                       ),
                       const SizedBox(height: 16),
-                      const Text(
-                        'صدقة جارية',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          letterSpacing: 1.1,
-                        ),
+                      
+                      // User Info
+                      Text(
+                        user != null ? (user.displayName ?? 'مستخدم') : 'حساب زائر (محلّي)',
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: primaryColor),
                       ),
-                       const SizedBox(height: 14),
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                        ),
-                        child: const Text(
-                          'هذا التطبيق صدقةٌ جاريةٌ، نسأل الله تعالى أن يتقبله وأن يرزقنا وإياكم الفردوس الأعلى من الجنة.',
-                          style: TextStyle(
-                            fontSize: 15,
-                            height: 1.6,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
+                      const SizedBox(height: 4),
+                      Text(
+                        user != null ? (user.email ?? '') : 'لم يتم تسجيل الدخول بعد',
+                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                      ),
+                      
+                      if (user != null) ...[
+                        const SizedBox(height: 20),
+                        OutlinedButton.icon(
+                          onPressed: () => authService.signOut(),
+                          icon: const Icon(Icons.logout_rounded, size: 18),
+                          label: const Text('تسجيل الخروج', style: TextStyle(fontWeight: FontWeight.bold)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.redAccent,
+                            side: const BorderSide(color: Colors.redAccent, width: 1.2),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           ),
-                          textAlign: TextAlign.center,
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        '«إِذَا مَاتَ ابنُ آدم انْقَطَعَ عَمَلُهُ إِلاَّ مِنْ ثَلاثٍ: صَدَقَةٍ جَارِيَةٍ، أَوْ عِلْمٍ يُنْتَفَعُ بِهِ، أَوْ وَلَدٍ صَالِحٍ يَدْعُو لَهُ»',
-                        style: TextStyle(
-                          fontSize: 13,
-                          height: 1.6,
-                          color: Colors.white70,
-                          fontStyle: FontStyle.italic,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('جزاك الله خيراً وتقبل منك ومن الجميع الصالحات 🤲'),
-                              duration: Duration(seconds: 3),
-                              behavior: SnackBarBehavior.floating,
+                      ] else ...[
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            try {
+                              await authService.signInWithGoogle();
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('حدث خطأ أثناء تسجيل الدخول: $e')),
+                                );
+                              }
+                            }
+                          },
+                          icon: Image.network(
+                            'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
+                            height: 20,
+                          ),
+                          label: const Text(
+                            'تسجيل الدخول بحساب جوجل',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            elevation: 1,
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(color: Colors.grey[300]!),
                             ),
-                          );
-                        },
-                        icon: const Icon(Icons.volunteer_activism, size: 20, color: primaryColor),
-                        label: const Text(
-                          'نسألك الدعاء لموتانا وموتى المسلمين بالمغفرة والرحمة 🤲',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryColor),
+                          ),
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        const SizedBox(height: 12),
+                        Text(
+                          'قم بمزامنة إنجازاتك وأذكارك سحابياً لتتمكن من الوصول إليها من أي جهاز آخر.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 11, color: Colors.grey[500], height: 1.4),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -141,156 +139,75 @@ class ProfileScreen extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              // User Profile Section (If logged in)
-              if (user != null) ...[
-                Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  color: Colors.white,
+              // Statistics Section Header
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4.0),
+                child: Text(
+                  'إحصائياتك وإنجازاتك:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.grey),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Total Azkar Dashboard Card
+              Card(
+                elevation: 1,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: Colors.grey[200]!),
+                ),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const StatisticsScreen()),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(20),
                   child: Padding(
                     padding: const EdgeInsets.all(20.0),
-                    child: Column(
+                    child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 36,
-                          backgroundImage: user.photoURL != null ? NetworkImage(user.photoURL!) : null,
-                          child: user.photoURL == null ? const Icon(Icons.person, size: 36) : null,
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withValues(alpha: 0.08),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.auto_graph_rounded, color: primaryColor, size: 28),
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          user.displayName ?? 'مستخدم',
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          user.email ?? '',
-                          style: const TextStyle(fontSize: 14, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 16),
-                        OutlinedButton.icon(
-                          onPressed: () => authService.signOut(),
-                          icon: const Icon(Icons.logout),
-                          label: const Text('تسجيل الخروج'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            side: const BorderSide(color: Colors.red),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'إجمالي الأذكار المقروءة',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${statsProvider.totalAzkarCount} ذِكر',
+                                style: const TextStyle(
+                                  color: primaryColor,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                        const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 16),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
-              ],
-
-              // Statistics Section Card (Tappable to view detailed stats)
-              InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const StatisticsScreen()),
-                  );
-                },
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.grey[200]!),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: primaryColor.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.auto_graph, color: primaryColor, size: 30),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'إجمالي الأذكار المقروءة',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${statsProvider.totalAzkarCount} ذكر',
-                              style: const TextStyle(
-                                color: primaryColor,
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 18),
-                    ],
-                  ),
-                ),
               ),
-
-              if (user == null) ...[
-                const SizedBox(height: 32),
-                
-                // Login Section
-                const Text(
-                  'حسابك السحابي',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'سجل دخولك للحفاظ على إحصائياتك ومزامنتها بين أجهزتك.',
-                  style: TextStyle(fontSize: 14, color: Colors.grey, height: 1.4),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    try {
-                      await authService.signInWithGoogle();
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('حدث خطأ أثناء تسجيل الدخول: $e')),
-                        );
-                      }
-                    }
-                  },
-                  icon: Image.network(
-                    'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
-                    height: 22,
-                  ),
-                  label: const Text('تسجيل الدخول بحساب جوجل', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black87,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    elevation: 1.5,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                ),
-              ],
             ],
           );
         },

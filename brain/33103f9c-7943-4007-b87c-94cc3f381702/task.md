@@ -1,0 +1,4 @@
+- `[x]` Implement Bookmark and Page Jump logic in QuranScreen surah index view
+- `[x]` Implement PageView.builder (1 to 604 pages) in QuranReadingScreen
+- `[x]` Render continuous verses and multi-surah styling for each page
+- `[x]` Verify everything compiles and works correctly

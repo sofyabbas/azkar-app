@@ -100,6 +100,28 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                               ),
                             ),
                           ),
+                          // Qibla Button
+                          IconButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const QiblaScreen()),
+                              );
+                            },
+                            icon: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withValues(alpha: 0.15),
+                              ),
+                              child: const Icon(
+                                Icons.explore_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                            tooltip: 'اتجاه القبلة',
+                          ),
                           // Location Target Button
                           IconButton(
                             onPressed: () async {

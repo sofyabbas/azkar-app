@@ -4,7 +4,7 @@ import '../providers/prayer_provider.dart';
 import '../providers/forty_days_provider.dart';
 import 'home_screen.dart';
 import 'prayer_times_screen.dart';
-import 'qibla_screen.dart';
+import 'quran_screen.dart';
 import 'profile_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -19,9 +19,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   final List<Widget> _pages = [
     const PrayerTimesScreen(),
-    const QiblaScreen(),
+    const QuranScreen(),
     const HomeScreen(),
-    const ProfileScreen(),
   ];
 
   @override
@@ -124,19 +123,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               label: 'المواقيت',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.explore_outlined),
-              activeIcon: Icon(Icons.explore),
-              label: 'القبلة',
-            ),
-            BottomNavigationBarItem(
               icon: Icon(Icons.menu_book_outlined),
               activeIcon: Icon(Icons.menu_book),
-              label: 'الأذكار',
+              label: 'المصحف',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline_rounded),
-              activeIcon: Icon(Icons.person_rounded),
-              label: 'حسابي',
+              icon: Icon(Icons.library_books_outlined),
+              activeIcon: Icon(Icons.library_books),
+              label: 'الأذكار',
             ),
           ],
         ),

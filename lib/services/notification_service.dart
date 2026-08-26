@@ -238,4 +238,30 @@ class NotificationService {
   Future<void> cancelAllNotifications() async {
     await _flutterLocalNotificationsPlugin.cancelAll();
   }
+
+  Future<void> showImmediateNotification({
+    required int id,
+    required String title,
+    required String body,
+  }) async {
+    const notificationDetails = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'gps_checkin_channel_v1',
+        'تأكيد إثبات الصلاة بالـ GPS',
+        channelDescription: 'تنبيهات إثبات الصلاة تلقائياً عند دخول المسجد',
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: true,
+      ),
+      iOS: DarwinNotificationDetails(
+        presentSound: true,
+      ),
+    );
+    await _flutterLocalNotificationsPlugin.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: notificationDetails,
+    );
+  }
 }

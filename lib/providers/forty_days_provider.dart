@@ -7,6 +7,7 @@ import 'package:adhan/adhan.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/forty_days_model.dart';
+import '../services/notification_service.dart';
 
 class FortyDaysProvider with ChangeNotifier {
   FortyDaysState? _state;
@@ -169,23 +170,33 @@ class FortyDaysProvider with ChangeNotifier {
     await _saveState();
   }
 
-  Future<void> togglePastDayPrayer(int historyIndex, String prayerName) async {
+  Future<void> setPastDayPrayerStatus(
+    int historyIndex,
+    String prayerName,
+    bool isCompleted, {
+    String? mosqueName,
+  }) async {
     if (_state == null || historyIndex < 0 || historyIndex >= _state!.history.length) return;
 
     final updatedHistory = List<DailyProgress>.from(_state!.history);
     final dayProgress = updatedHistory[historyIndex];
     
     final updatedPrayers = Map<String, PrayerLog>.from(dayProgress.prayers);
-    final currentLog = updatedPrayers[prayerName];
-    final wasCompleted = currentLog?.isCompleted ?? false;
     
-    updatedPrayers[prayerName] = PrayerLog(
-      prayerName: prayerName,
-      isCompleted: !wasCompleted,
-      completedAt: !wasCompleted ? DateTime.now() : null,
-      mosqueName: !wasCompleted ? 'تعديل يدوي' : null,
-      verifiedByGps: false,
-    );
+    if (isCompleted) {
+      updatedPrayers[prayerName] = PrayerLog(
+        prayerName: prayerName,
+        isCompleted: true,
+        completedAt: DateTime.now(),
+        mosqueName: mosqueName?.trim().isEmpty == true ? null : mosqueName?.trim(),
+        verifiedByGps: false,
+      );
+    } else {
+      updatedPrayers[prayerName] = PrayerLog(
+        prayerName: prayerName,
+        isCompleted: false,
+      );
+    }
 
     // Re-evaluate if all 5 prayers are completed
     final allCompleted = updatedPrayers.values.length == 5 && 
@@ -432,6 +443,17 @@ class FortyDaysProvider with ChangeNotifier {
     if (matchedMosque != null) {
       await markPrayerCompleted(activePrayerName, byGps: true, mosqueName: matchedMosque.name);
       _autoCheckInSuccessMessage = 'تم إثبات صلاة $activePrayerName جماعة تلقائياً في مسجد "${matchedMosque.name}"! 🎉';
+      
+      try {
+        await NotificationService().showImmediateNotification(
+          id: 888,
+          title: 'إثبات صلاة تلقائي 🕌',
+          body: 'تم إثبات صلاة $activePrayerName جماعة تلقائياً في مسجد "${matchedMosque.name}"',
+        );
+      } catch (e) {
+        debugPrint("Error sending GPS check-in notification: $e");
+      }
+      
       notifyListeners();
     }
   }
@@ -539,6 +561,158 @@ class FortyDaysProvider with ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  static String normalizeMosqueName(String? name) {
+    if (name == null || name.trim().isEmpty) return '';
+    String normalized = name.trim();
+    
+    // Remove trailing periods and commas
+    while (normalized.endsWith('.') || normalized.endsWith('،') || normalized.endsWith(',')) {
+      normalized = normalized.substring(0, normalized.length - 1).trim();
+    }
+    
+    // Normalize Arabic characters: Alifs, Ta Marbuta, Alif Maqsura
+    normalized = normalized
+        .replaceAll(RegExp(r'[أإآ]'), 'ا')
+        .replaceAll('ة', 'ه')
+        .replaceAll('ى', 'ي')
+        // Remove Arabic tashkeel (diacritics)
+        .replaceAll(RegExp(r'[\u064B-\u065F]'), '');
+        
+    // Normalize multiple spaces to a single space
+    normalized = normalized.replaceAll(RegExp(r'\s+'), ' ');
+    
+    return normalized.trim();
+  }
+
+  Future<void> renameSavedMosque(String oldName, String newName) async {
+    if (_state == null) return;
+    final cleanOld = oldName.trim();
+    final cleanNew = newName.trim();
+    if (cleanOld.isEmpty || cleanNew.isEmpty || cleanOld == cleanNew) return;
+
+    // 1. Update in savedMosques
+    final updatedMosques = _state!.savedMosques.map((m) {
+      if (m.name.trim() == cleanOld) {
+        return SavedMosque(name: cleanNew, latitude: m.latitude, longitude: m.longitude);
+      }
+      return m;
+    }).toList();
+
+    // 2. Update in todaysPrayers
+    final updatedToday = _state!.todaysPrayers.map((pName, log) {
+      if (log.isCompleted && log.mosqueName?.trim() == cleanOld) {
+        return MapEntry(
+          pName,
+          PrayerLog(
+            prayerName: log.prayerName,
+            isCompleted: log.isCompleted,
+            completedAt: log.completedAt,
+            mosqueName: cleanNew,
+            verifiedByGps: log.verifiedByGps,
+          ),
+        );
+      }
+      return MapEntry(pName, log);
+    });
+
+    // 3. Update in history
+    final updatedHistory = _state!.history.map((progress) {
+      final updatedPrayers = progress.prayers.map((pName, log) {
+        if (log.isCompleted && log.mosqueName?.trim() == cleanOld) {
+          return MapEntry(
+            pName,
+            PrayerLog(
+              prayerName: log.prayerName,
+              isCompleted: log.isCompleted,
+              completedAt: log.completedAt,
+              mosqueName: cleanNew,
+              verifiedByGps: log.verifiedByGps,
+            ),
+          );
+        }
+        return MapEntry(pName, log);
+      });
+      return DailyProgress(
+        dayIndex: progress.dayIndex,
+        date: progress.date,
+        prayers: updatedPrayers,
+        isSuccess: progress.isSuccess,
+      );
+    }).toList();
+
+    _state = FortyDaysState(
+      startDate: _state!.startDate,
+      currentDayIndex: _state!.currentDayIndex,
+      todaysPrayers: updatedToday,
+      savedMosques: updatedMosques,
+      history: updatedHistory,
+      lastUpdatedDate: _state!.lastUpdatedDate,
+    );
+
+    await _saveState();
+  }
+
+  Future<void> updatePrayerMosqueName(String prayerName, String? newMosqueName, {int? historyDayIndex}) async {
+    if (_state == null) return;
+    
+    final cleanName = newMosqueName?.trim().isEmpty == true ? null : newMosqueName?.trim();
+    
+    if (historyDayIndex == null) {
+      // Update today's prayer
+      final currentPrayers = Map<String, PrayerLog>.from(_state!.todaysPrayers);
+      final log = currentPrayers[prayerName];
+      if (log != null && log.isCompleted) {
+        currentPrayers[prayerName] = PrayerLog(
+          prayerName: log.prayerName,
+          isCompleted: log.isCompleted,
+          completedAt: log.completedAt,
+          mosqueName: cleanName,
+          verifiedByGps: log.verifiedByGps,
+        );
+        _state = FortyDaysState(
+          startDate: _state!.startDate,
+          currentDayIndex: _state!.currentDayIndex,
+          todaysPrayers: currentPrayers,
+          savedMosques: _state!.savedMosques,
+          history: _state!.history,
+          lastUpdatedDate: DateTime.now(),
+        );
+        await _saveState();
+      }
+    } else {
+      // Update historical prayer
+      if (historyDayIndex < 0 || historyDayIndex >= _state!.history.length) return;
+      final updatedHistory = List<DailyProgress>.from(_state!.history);
+      final progress = updatedHistory[historyDayIndex];
+      final updatedPrayers = Map<String, PrayerLog>.from(progress.prayers);
+      final log = updatedPrayers[prayerName];
+      if (log != null && log.isCompleted) {
+        updatedPrayers[prayerName] = PrayerLog(
+          prayerName: log.prayerName,
+          isCompleted: log.isCompleted,
+          completedAt: log.completedAt,
+          mosqueName: cleanName,
+          verifiedByGps: log.verifiedByGps,
+        );
+        updatedHistory[historyDayIndex] = DailyProgress(
+          dayIndex: progress.dayIndex,
+          date: progress.date,
+          prayers: updatedPrayers,
+          isSuccess: progress.isSuccess,
+        );
+        _state = FortyDaysState(
+          startDate: _state!.startDate,
+          currentDayIndex: _state!.currentDayIndex,
+          todaysPrayers: _state!.todaysPrayers,
+          savedMosques: _state!.savedMosques,
+          history: updatedHistory,
+          lastUpdatedDate: _state!.lastUpdatedDate,
+        );
+        await _saveState();
+      }
     }
   }
 

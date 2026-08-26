@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/zikr_model.dart';
 import '../providers/azkar_provider.dart';
 import '../widgets/category_card.dart';
@@ -10,6 +11,9 @@ import 'forty_days_screen.dart';
 import 'favorites_screen.dart';
 import 'qibla_screen.dart';
 import 'tasbeeh_screen.dart';
+import 'quran_screen.dart';
+import 'profile_screen.dart';
+import 'statistics_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -25,6 +29,53 @@ class HomeScreen extends StatelessWidget {
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         actions: [
+          Consumer<AzkarProvider>(
+            builder: (context, provider, child) {
+              final user = provider.currentUser;
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                  );
+                },
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.15),
+                    border: Border.all(color: Colors.white70, width: 1.5),
+                  ),
+                  child: ClipOval(
+                    child: user?.photoURL != null
+                        ? Image.network(
+                            user!.photoURL!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => const Icon(
+                              Icons.person_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                          )
+                        : Center(
+                            child: Text(
+                              user?.email != null && user!.email!.isNotEmpty
+                                  ? user.email!.substring(0, 1).toUpperCase()
+                                  : '👤',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                  ),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
@@ -139,6 +190,9 @@ class HomeScreen extends StatelessWidget {
         _buildFortyDaysCard(context),
         const SizedBox(height: 12),
 
+        _buildStatisticsCard(context),
+        const SizedBox(height: 12),
+
 
 
         // Action Cards Row (المسبحة الذكية | القبلة | المفضلة)
@@ -240,6 +294,73 @@ class HomeScreen extends StatelessWidget {
                     SizedBox(height: 2),
                     Text(
                       'إدراك التكبيرة الأولى في جماعة',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, color: primaryColor, size: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatisticsCard(BuildContext context) {
+    const primaryColor = Color(0xFF1E3A37);
+
+    return Card(
+      elevation: 2,
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: primaryColor.withValues(alpha: 0.2)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const StatisticsScreen()),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: const BoxDecoration(
+                  color: primaryColor,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.bar_chart_rounded,
+                  color: Color(0xFFFFD700),
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'الإحصائيات والتقدم',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: primaryColor,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'عرض تقدمك اليومي وإحصائيات قراءة الأذكار',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey,
