@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/stats_provider.dart';
 import '../providers/azkar_provider.dart';
@@ -29,6 +29,11 @@ class StatisticsScreen extends StatelessWidget {
             pinned: true,
             backgroundColor: primaryColor,
             foregroundColor: Colors.white,
+            title: const Text(
+              'إحصائياتي',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            centerTitle: true,
             actions: [
               IconButton(
                 icon: const Icon(Icons.restart_alt_rounded),
@@ -46,40 +51,33 @@ class StatisticsScreen extends StatelessWidget {
                     colors: [Color(0xFF1E3A37), Color(0xFF2D5A52)],
                   ),
                 ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 56, 20, 0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '${statsProvider.totalAzkarCount}',
-                          style: const TextStyle(
-                            fontSize: 64,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            height: 1.0,
-                          ),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 64.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '${statsProvider.totalAzkarCount}',
+                        style: const TextStyle(
+                          fontSize: 56,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          height: 1.0,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'إجمالي الأذكار المقروءة',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white.withValues(alpha: 0.75),
-                            letterSpacing: 0.5,
-                          ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'إجمالي الأذكار المقروءة',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white.withValues(alpha: 0.75),
+                          letterSpacing: 0.5,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              title: const Text(
-                'إحصائياتي',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-              ),
-              centerTitle: true,
             ),
           ),
 
@@ -104,6 +102,19 @@ class StatisticsScreen extends StatelessWidget {
                         label: 'الأربعينات النبوية',
                         value: '${statsProvider.fortyDaysCount}',
                         color: const Color(0xFFE67E22),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  Row(
+                    children: [
+                      _StatCard(
+                        icon: Icons.touch_app_rounded,
+                        label: 'تسبيحات المسبحة',
+                        value: '${statsProvider.tasbeehCount}',
+                        color: const Color(0xFF9B59B6),
                       ),
                     ],
                   ),
@@ -145,6 +156,82 @@ class StatisticsScreen extends StatelessWidget {
                         accentColor: accentColor,
                       );
                     }),
+
+                  // ── Tasbeeh Details Section ──────────────────────────────
+                  if (statsProvider.tasbeehDhikrStats.entries.any((e) => e.value > 0)) ...[
+                    const SizedBox(height: 24),
+                    const Padding(
+                      padding: EdgeInsets.only(right: 4, bottom: 12),
+                      child: Text(
+                        'تفاصيل تسبيحات المسبحة',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E3A37),
+                        ),
+                      ),
+                    ),
+                    ...statsProvider.tasbeehDhikrStats.entries.where((e) => e.value > 0).map((entry) {
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF9B59B6).withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.touch_app_rounded,
+                                color: Color(0xFF9B59B6),
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Text(
+                                entry.key,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E3A37),
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF9B59B6).withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${entry.value} مرة',
+                                style: const TextStyle(
+                                  color: Color(0xFF9B59B6),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
 
                   const SizedBox(height: 24),
                 ],
@@ -300,25 +387,27 @@ class _TimeCard extends StatelessWidget {
             child: const Icon(Icons.timer_outlined, color: Colors.white, size: 22),
           ),
           const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'الوقت الكلي في الأذكار',
-                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.75)),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                duration,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 0.5,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'الوقت الكلي في الأذكار',
+                  style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.75)),
                 ),
-                textDirection: TextDirection.rtl,
-              ),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  duration,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                  ),
+                  textDirection: TextDirection.rtl,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -403,13 +492,37 @@ class _CategoryCard extends StatelessWidget {
                   value: '${stat.itemsReadCount}',
                   color: primaryColor,
                 ),
-                const SizedBox(width: 8),
-                _InfoChip(
-                  label: 'الوقت',
-                  value: StatsProvider.formatDuration(stat.timeSpentSeconds),
-                  color: const Color(0xFF7F8C8D),
-                ),
               ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7F8C8D).withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.timer_outlined, size: 16, color: Color(0xFF7F8C8D)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'الوقت المستغرق: ',
+                      style: TextStyle(fontSize: 12, color: const Color(0xFF7F8C8D).withValues(alpha: 0.8)),
+                    ),
+                    Text(
+                      StatsProvider.formatDuration(stat.timeSpentSeconds),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF7F8C8D),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),

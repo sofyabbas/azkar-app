@@ -27,6 +27,12 @@ class _TasbeehScreenState extends State<TasbeehScreen> {
   ];
 
   void _incrementCounter() {
+    if (_targetCount > 0 && _counter >= _targetCount) {
+      // Vibrate if they attempt to continue after completing target
+      HapticFeedback.vibrate();
+      return;
+    }
+
     HapticFeedback.lightImpact();
 
     setState(() {
@@ -34,8 +40,12 @@ class _TasbeehScreenState extends State<TasbeehScreen> {
       _totalSessionCount++;
     });
 
-    // Record stats
-    Provider.of<StatsProvider>(context, listen: false).recordZikrRead(count: 1);
+    // Record stats in the dedicated tasbeeh tracker
+    final currentZikr = _azkarList[_selectedZikrIndex];
+    Provider.of<StatsProvider>(context, listen: false).recordTasbeeh(
+      zikrTitle: currentZikr['title'],
+      count: 1,
+    );
 
     // Check target completion
     if (_targetCount > 0 && _counter == _targetCount) {

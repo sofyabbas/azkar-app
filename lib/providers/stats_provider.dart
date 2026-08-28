@@ -33,6 +33,7 @@ class CategoryStat {
 class StatsProvider with ChangeNotifier {
   int _dailyAzkarCount = 0;
   int _fortyDaysCount = 0;
+  int _tasbeehCount = 0;
   int _totalTimeSeconds = 0;
 
   // Streak & Habit Tracking
@@ -42,14 +43,17 @@ class StatsProvider with ChangeNotifier {
   List<String> _activeDates = [];
 
   Map<String, CategoryStat> _categoryStats = {};
+  Map<String, int> _tasbeehDhikrStats = {};
 
   User? _currentUser;
   bool _hasLoadedAsGuest = false;
   StreamSubscription<User?>? _authSubscription;
 
-  int get totalAzkarCount => _dailyAzkarCount + _fortyDaysCount;
+  int get totalAzkarCount => _dailyAzkarCount + _fortyDaysCount + _tasbeehCount;
   int get dailyAzkarCount => _dailyAzkarCount;
   int get fortyDaysCount => _fortyDaysCount;
+  int get tasbeehCount => _tasbeehCount;
+  Map<String, int> get tasbeehDhikrStats => _tasbeehDhikrStats;
   int get totalTimeSeconds => _totalTimeSeconds;
   Map<String, CategoryStat> get categoryStats => _categoryStats;
 
@@ -78,6 +82,7 @@ class StatsProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _dailyAzkarCount = prefs.getInt('stats_dailyAzkarCount') ?? 0;
       _fortyDaysCount = prefs.getInt('stats_fortyDaysCount') ?? 0;
+      _tasbeehCount = prefs.getInt('stats_tasbeehCount') ?? 0;
       _totalTimeSeconds = prefs.getInt('stats_totalTimeSeconds') ?? 0;
 
       // Load streak data
@@ -94,6 +99,14 @@ class StatsProvider with ChangeNotifier {
         final Map<String, dynamic> decoded = json.decode(catJson);
         _categoryStats = decoded.map(
           (key, value) => MapEntry(key, CategoryStat.fromJson(value)),
+        );
+      }
+
+      final String? tasbeehDhikrJson = prefs.getString('stats_tasbeehDhikrStats');
+      if (tasbeehDhikrJson != null) {
+        final Map<String, dynamic> decoded = json.decode(tasbeehDhikrJson);
+        _tasbeehDhikrStats = decoded.map(
+          (key, value) => MapEntry(key, value as int),
         );
       }
       notifyListeners();
@@ -124,6 +137,7 @@ class StatsProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('stats_dailyAzkarCount', _dailyAzkarCount);
       await prefs.setInt('stats_fortyDaysCount', _fortyDaysCount);
+      await prefs.setInt('stats_tasbeehCount', _tasbeehCount);
       await prefs.setInt('stats_totalTimeSeconds', _totalTimeSeconds);
 
       // Save streak data
@@ -135,6 +149,7 @@ class StatsProvider with ChangeNotifier {
       final Map<String, dynamic> catMap =
           _categoryStats.map((key, value) => MapEntry(key, value.toJson()));
       await prefs.setString('stats_categoryStats', json.encode(catMap));
+      await prefs.setString('stats_tasbeehDhikrStats', json.encode(_tasbeehDhikrStats));
 
       // Sync with Firestore if logged in
       final user = FirebaseAuth.instance.currentUser;
@@ -143,6 +158,8 @@ class StatsProvider with ChangeNotifier {
           'totalAzkarCount': totalAzkarCount,
           'dailyAzkarCount': _dailyAzkarCount,
           'fortyDaysCount': _fortyDaysCount,
+          'tasbeehCount': _tasbeehCount,
+          'tasbeehDhikrStats': _tasbeehDhikrStats,
           'totalTimeSeconds': _totalTimeSeconds,
           'currentStreak': _currentStreak,
           'longestStreak': _longestStreak,
@@ -213,6 +230,17 @@ class StatsProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Increment tasbeeh count
+  void recordTasbeeh({String? zikrTitle, int count = 1}) {
+    recordDailyActivity();
+    _tasbeehCount += count;
+    if (zikrTitle != null && zikrTitle.isNotEmpty) {
+      _tasbeehDhikrStats[zikrTitle] = (_tasbeehDhikrStats[zikrTitle] ?? 0) + count;
+    }
+    _saveStats();
+    notifyListeners();
+  }
+
   /// Record category completion
   void recordCategoryCompleted(String categoryId) {
     recordDailyActivity();
@@ -244,16 +272,20 @@ class StatsProvider with ChangeNotifier {
   Future<void> resetStats() async {
     _dailyAzkarCount = 0;
     _fortyDaysCount = 0;
+    _tasbeehCount = 0;
     _totalTimeSeconds = 0;
     _currentStreak = 0;
     _longestStreak = 0;
     _lastActiveDate = '';
     _activeDates.clear();
     _categoryStats.clear();
+    _tasbeehDhikrStats.clear();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('stats_dailyAzkarCount');
     await prefs.remove('stats_fortyDaysCount');
+    await prefs.remove('stats_tasbeehCount');
+    await prefs.remove('stats_tasbeehDhikrStats');
     await prefs.remove('stats_totalTimeSeconds');
     await prefs.remove('stats_currentStreak');
     await prefs.remove('stats_longestStreak');
@@ -269,6 +301,8 @@ class StatsProvider with ChangeNotifier {
           'totalAzkarCount': 0,
           'dailyAzkarCount': 0,
           'fortyDaysCount': 0,
+          'tasbeehCount': 0,
+          'tasbeehDhikrStats': {},
           'totalTimeSeconds': 0,
           'currentStreak': 0,
           'longestStreak': 0,
@@ -287,12 +321,14 @@ class StatsProvider with ChangeNotifier {
   void resetLocalStatsInMemory() {
     _dailyAzkarCount = 0;
     _fortyDaysCount = 0;
+    _tasbeehCount = 0;
     _totalTimeSeconds = 0;
     _currentStreak = 0;
     _longestStreak = 0;
     _lastActiveDate = '';
     _activeDates.clear();
     _categoryStats.clear();
+    _tasbeehDhikrStats.clear();
     notifyListeners();
   }
 
@@ -301,6 +337,8 @@ class StatsProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('stats_dailyAzkarCount');
     await prefs.remove('stats_fortyDaysCount');
+    await prefs.remove('stats_tasbeehCount');
+    await prefs.remove('stats_tasbeehDhikrStats');
     await prefs.remove('stats_totalTimeSeconds');
     await prefs.remove('stats_currentStreak');
     await prefs.remove('stats_longestStreak');
@@ -364,6 +402,7 @@ class StatsProvider with ChangeNotifier {
             // Merge guest progress into cloud progress
             _dailyAzkarCount = cloudDaily + _dailyAzkarCount;
             _fortyDaysCount = cloudFortyDays + _fortyDaysCount;
+            _tasbeehCount = (data['tasbeehCount'] ?? 0) + _tasbeehCount;
             _totalTimeSeconds = cloudTotalTime + _totalTimeSeconds;
 
             _currentStreak = _currentStreak > cloudCurrentStreak ? _currentStreak : cloudCurrentStreak;
@@ -388,12 +427,18 @@ class StatsProvider with ChangeNotifier {
               localStat.timeSpentSeconds += cloudStat.timeSpentSeconds;
             }
 
+            final Map<String, dynamic> cloudTasbeehDhikr = data['tasbeehDhikrStats'] ?? {};
+            cloudTasbeehDhikr.forEach((key, value) {
+              _tasbeehDhikrStats[key] = (_tasbeehDhikrStats[key] ?? 0) + (value as int);
+            });
+
             // Save the merged stats to both local and cloud
             await _saveStats();
           } else {
             // Overwrite memory and local cache with cloud data (normal app startup login sync)
             _dailyAzkarCount = cloudDaily;
             _fortyDaysCount = cloudFortyDays;
+            _tasbeehCount = data['tasbeehCount'] ?? 0;
             _totalTimeSeconds = cloudTotalTime;
             _currentStreak = cloudCurrentStreak;
             _longestStreak = cloudLongestStreak;
@@ -401,11 +446,18 @@ class StatsProvider with ChangeNotifier {
             _activeDates = cloudActiveDates;
             _categoryStats = cloudCategoryStats;
 
+            final Map<String, dynamic> cloudTasbeehDhikr = data['tasbeehDhikrStats'] ?? {};
+            _tasbeehDhikrStats = cloudTasbeehDhikr.map(
+              (key, value) => MapEntry(key, value as int),
+            );
+
             _checkStreakValidity();
 
             final prefs = await SharedPreferences.getInstance();
             await prefs.setInt('stats_dailyAzkarCount', _dailyAzkarCount);
             await prefs.setInt('stats_fortyDaysCount', _fortyDaysCount);
+            await prefs.setInt('stats_tasbeehCount', _tasbeehCount);
+            await prefs.setString('stats_tasbeehDhikrStats', json.encode(_tasbeehDhikrStats));
             await prefs.setInt('stats_totalTimeSeconds', _totalTimeSeconds);
             await prefs.setInt('stats_currentStreak', _currentStreak);
             await prefs.setInt('stats_longestStreak', _longestStreak);

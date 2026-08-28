@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/zikr_model.dart';
 import '../providers/azkar_provider.dart';
 import '../widgets/category_card.dart';
@@ -11,7 +10,6 @@ import 'forty_days_screen.dart';
 import 'favorites_screen.dart';
 import 'qibla_screen.dart';
 import 'tasbeeh_screen.dart';
-import 'quran_screen.dart';
 import 'profile_screen.dart';
 import 'statistics_screen.dart';
 
@@ -25,7 +23,10 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF6FAF9),
       appBar: AppBar(
-        title: const Text('أذكار المسلم', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'أذكار المسلم',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         actions: [
@@ -36,11 +37,16 @@ class HomeScreen extends StatelessWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                    MaterialPageRoute(
+                      builder: (context) => const ProfileScreen(),
+                    ),
                   );
                 },
                 child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
@@ -53,11 +59,12 @@ class HomeScreen extends StatelessWidget {
                         ? Image.network(
                             user!.photoURL!,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => const Icon(
-                              Icons.person_rounded,
-                              color: Colors.white,
-                              size: 22,
-                            ),
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(
+                                  Icons.person_rounded,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
                           )
                         : Center(
                             child: Text(
@@ -90,7 +97,9 @@ class HomeScreen extends StatelessWidget {
       body: Consumer<AzkarProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator(color: primaryColor));
+            return const Center(
+              child: CircularProgressIndicator(color: primaryColor),
+            );
           }
 
           if (provider.categories.isEmpty) {
@@ -125,7 +134,10 @@ class HomeScreen extends StatelessWidget {
                   itemCount: gridItemCount,
                   itemBuilder: (context, index) {
                     if (hasMore && index == mainCategories.length) {
-                      return _buildOtherCategoriesCard(context, remainingCategories);
+                      return _buildOtherCategoriesCard(
+                        context,
+                        remainingCategories,
+                      );
                     }
                     final category = mainCategories[index];
                     return CategoryCard(category: category);
@@ -139,7 +151,10 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildOtherCategoriesCard(BuildContext context, List<AzkarCategory> remainingCategories) {
+  Widget _buildOtherCategoriesCard(
+    BuildContext context,
+    List<AzkarCategory> remainingCategories,
+  ) {
     return Card(
       elevation: 2,
       margin: EdgeInsets.zero,
@@ -154,7 +169,8 @@ class HomeScreen extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => OtherAzkarScreen(otherCategories: remainingCategories),
+              builder: (context) =>
+                  OtherAzkarScreen(otherCategories: remainingCategories),
             ),
           );
         },
@@ -172,7 +188,11 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               SizedBox(width: 6),
-              Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF1E3A37)),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: Color(0xFF1E3A37),
+              ),
             ],
           ),
         ),
@@ -193,16 +213,35 @@ class HomeScreen extends StatelessWidget {
         _buildStatisticsCard(context),
         const SizedBox(height: 12),
 
-
-
         // Action Cards Row (المسبحة الذكية | القبلة | المفضلة)
         Row(
           children: [
-            Expanded(child: _buildActionCard(context, 'المسبحة الذكية', Icons.touch_app_rounded, const TasbeehScreen())),
+            Expanded(
+              child: _buildActionCard(
+                context,
+                'المسبحة الذكية',
+                Icons.touch_app_rounded,
+                const TasbeehScreen(),
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: _buildActionCard(context, 'القبلة', Icons.explore_outlined, const QiblaScreen())),
+            Expanded(
+              child: _buildActionCard(
+                context,
+                'القبلة',
+                Icons.explore_outlined,
+                const QiblaScreen(),
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: _buildActionCard(context, 'المفضلة', Icons.favorite_border_rounded, const FavoritesScreen())),
+            Expanded(
+              child: _buildActionCard(
+                context,
+                'المفضلة',
+                Icons.favorite_border_rounded,
+                const FavoritesScreen(),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 20),
@@ -210,7 +249,12 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildActionCard(BuildContext context, String title, IconData icon, Widget screen) {
+  Widget _buildActionCard(
+    BuildContext context,
+    String title,
+    IconData icon,
+    Widget screen,
+  ) {
     const primaryColor = Color(0xFF1E3A37);
 
     return Card(
@@ -223,7 +267,10 @@ class HomeScreen extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => screen),
+          );
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
@@ -234,7 +281,11 @@ class HomeScreen extends StatelessWidget {
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: primaryColor),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: primaryColor,
+                ),
               ),
             ],
           ),
@@ -294,15 +345,16 @@ class HomeScreen extends StatelessWidget {
                     SizedBox(height: 2),
                     Text(
                       'إدراك التكبيرة الأولى في جماعة',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey,
-                      ),
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios_rounded, color: primaryColor, size: 16),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: primaryColor,
+                size: 16,
+              ),
             ],
           ),
         ),
@@ -361,15 +413,16 @@ class HomeScreen extends StatelessWidget {
                     SizedBox(height: 2),
                     Text(
                       'عرض تقدمك اليومي وإحصائيات قراءة الأذكار',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey,
-                      ),
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios_rounded, color: primaryColor, size: 16),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: primaryColor,
+                size: 16,
+              ),
             ],
           ),
         ),

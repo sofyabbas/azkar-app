@@ -95,7 +95,7 @@ class ProfileScreen extends StatelessWidget {
                         ),
                       ] else ...[
                         const SizedBox(height: 20),
-                        ElevatedButton.icon(
+                        ElevatedButton(
                           onPressed: () async {
                             try {
                               await authService.signInWithGoogle();
@@ -107,14 +107,6 @@ class ProfileScreen extends StatelessWidget {
                               }
                             }
                           },
-                          icon: Image.network(
-                            'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
-                            height: 20,
-                          ),
-                          label: const Text(
-                            'تسجيل الدخول بحساب جوجل',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
-                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
                             elevation: 1,
@@ -122,6 +114,23 @@ class ProfileScreen extends StatelessWidget {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                               side: BorderSide(color: Colors.grey[300]!),
+                            ),
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Image.network(
+                                  'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
+                                  height: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'تسجيل الدخول بحساب جوجل',
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
+                                ),
+                              ],
                             ),
                           ),
                         ),

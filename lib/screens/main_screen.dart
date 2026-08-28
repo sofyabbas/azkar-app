@@ -5,7 +5,6 @@ import '../providers/forty_days_provider.dart';
 import 'home_screen.dart';
 import 'prayer_times_screen.dart';
 import 'quran_screen.dart';
-import 'profile_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -48,8 +47,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   void _runAutomaticGpsCheckIn() {
     if (!mounted) return;
     final prayerProvider = Provider.of<PrayerProvider>(context, listen: false);
-    final fortyDaysProvider = Provider.of<FortyDaysProvider>(context, listen: false);
-    
+    final fortyDaysProvider = Provider.of<FortyDaysProvider>(
+      context,
+      listen: false,
+    );
+
     final prayerTimes = prayerProvider.prayerTimes;
     if (prayerTimes != null) {
       fortyDaysProvider.runAutomaticGpsCheckIn(prayerTimes: prayerTimes);
@@ -61,7 +63,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     const primaryColor = Color(0xFF1E3A37);
 
     // Listen to FortyDaysProvider for automatic check-in success messages
-    final fortyDaysProvider = Provider.of<FortyDaysProvider>(context, listen: true);
+    final fortyDaysProvider = Provider.of<FortyDaysProvider>(
+      context,
+      listen: true,
+    );
     if (fortyDaysProvider.autoCheckInSuccessMessage != null) {
       final msg = fortyDaysProvider.autoCheckInSuccessMessage!;
       fortyDaysProvider.clearAutoCheckInSuccessMessage();
@@ -75,14 +80,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 Expanded(
                   child: Text(
                     msg,
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],
             ),
             backgroundColor: const Color(0xFF1E3A37),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       });
@@ -90,10 +100,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6FAF9),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,

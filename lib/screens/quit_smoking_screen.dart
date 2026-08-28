@@ -204,21 +204,40 @@ class QuitSmokingScreen extends StatelessWidget {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.all(14.0),
+        padding: const EdgeInsets.all(11.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(title, style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold)),
-                Icon(icon, color: iconColor, size: 20),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(icon, color: iconColor, size: 18),
               ],
             ),
             const Spacer(),
-            Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
+              ),
+            ),
             const SizedBox(height: 2),
-            Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10, color: Colors.grey),
+            ),
           ],
         ),
       ),
