@@ -61,6 +61,48 @@ class _QuranScreenState extends State<QuranScreen> with SingleTickerProviderStat
           'المصحف الشريف',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline, color: Colors.white70),
+            tooltip: 'عن المصحف والمصدر',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text(
+                    'مصدر بيانات المصحف',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor),
+                  ),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.verified, color: Color(0xFFCBB282), size: 48),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'النص القرآني المعتمد في هذا التطبيق مستخرج ومطابق بنسبة 100% لمشروع تنزيل العالمي (Tanzil.net).',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 14, height: 1.6),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '• الرواية: حفص عن عاصم\n• الرسم: الرسم العثماني (مصحف المدينة المنورة)\n• عدد الصفحات: 604 صفحة\n• المصدر: Tanzil Quran Project (Tanzil.net)',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.7),
+                        textAlign: TextAlign.right,
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('إغلاق', style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
