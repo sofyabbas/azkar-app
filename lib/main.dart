@@ -9,6 +9,7 @@ import 'package:azkar/providers/azkar_provider.dart';
 import 'package:azkar/providers/prayer_provider.dart';
 import 'package:azkar/providers/forty_days_provider.dart';
 import 'package:azkar/providers/stats_provider.dart';
+import 'package:azkar/providers/quran_provider.dart';
 import 'package:azkar/screens/main_screen.dart';
 import 'package:azkar/services/notification_service.dart';
 
@@ -34,6 +35,7 @@ class AzkarApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PrayerProvider()),
         ChangeNotifierProvider(create: (_) => FortyDaysProvider()),
         ChangeNotifierProvider(create: (_) => StatsProvider()),
+        ChangeNotifierProvider(create: (_) => QuranProvider()),
       ],
       child: MaterialApp(
         title: 'أذكار ومواقيت الصلاة',
