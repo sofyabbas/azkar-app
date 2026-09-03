@@ -14,6 +14,12 @@ class QuranService {
   List<QuranSurah>? _cachedSurahs;
   List<QuranJuz>? _cachedJuzs;
 
+  /// Returns local asset path for the page image
+  static String getPageAssetPath(int pageNumber) {
+    final p = pageNumber.clamp(1, 604);
+    return 'assets/quran_pages/$p.jpg';
+  }
+
   /// Retrieves page data asynchronously with caching
   Future<QuranPageData> getPageData(int pageNumber) async {
     if (pageNumber < 1) pageNumber = 1;
@@ -23,7 +29,6 @@ class QuranService {
       return _pageCache[pageNumber]!;
     }
 
-    // Run building of page data
     final pageData = _buildPageData(pageNumber);
     _pageCache[pageNumber] = pageData;
     return pageData;
@@ -43,23 +48,6 @@ class QuranService {
     return pageData;
   }
 
-  /// Pre-fetches surrounding pages into memory for smooth flipping
-  Future<void> prefetchPages(int currentPage, {int radius = 3}) async {
-    final start = (currentPage - radius).clamp(1, 604);
-    final end = (currentPage + radius).clamp(1, 604);
-
-    for (int p = start; p <= end; p++) {
-      if (!_pageCache.containsKey(p)) {
-        // Schedule next event loop tick
-        await Future.microtask(() {
-          if (!_pageCache.containsKey(p)) {
-            _pageCache[p] = _buildPageData(p);
-          }
-        });
-      }
-    }
-  }
-
   QuranPageData _buildPageData(int pageNumber) {
     final rawItems = quran.getPageData(pageNumber);
     if (rawItems.isEmpty) {
@@ -67,7 +55,6 @@ class QuranService {
         pageNumber: pageNumber,
         juzNumber: 1,
         primarySurahName: 'الفاتحة',
-        segments: const [],
       );
     }
 
@@ -76,56 +63,10 @@ class QuranService {
     final juzNumber = quran.getJuzNumber(firstSurah, firstVerse);
     final primarySurahName = quran.getSurahNameArabic(firstSurah);
 
-    final segments = <QuranSurahPageSegment>[];
-
-    for (final raw in rawItems) {
-      final sNum = raw['surah']!;
-      final start = raw['start']!;
-      final end = raw['end']!;
-
-      final surahNameAr = quran.getSurahNameArabic(sNum);
-      final surahNameEn = quran.getSurahName(sNum);
-      final isStart = start == 1;
-      final showBasmala = sNum != 1 && sNum != 9 && isStart;
-
-      final verses = <QuranVerse>[];
-      for (int v = start; v <= end; v++) {
-        String vText = quran.getVerse(sNum, v, verseEndSymbol: true);
-
-        // Strip repeated Basmala from first ayah if present in data
-        if (showBasmala && v == 1) {
-          const cleanBasmala = 'بِسْمِ اللَّهِ الرَّحْمَـٰنِ الرَّحِيمِ';
-          if (vText.startsWith(cleanBasmala)) {
-            vText = vText.substring(cleanBasmala.length).trim();
-          }
-        }
-
-        verses.add(QuranVerse(
-          surahNumber: sNum,
-          verseNumber: v,
-          text: vText,
-          juzNumber: quran.getJuzNumber(sNum, v),
-          pageNumber: pageNumber,
-        ));
-      }
-
-      segments.add(QuranSurahPageSegment(
-        surahNumber: sNum,
-        surahNameArabic: surahNameAr,
-        surahNameEnglish: surahNameEn,
-        startVerse: start,
-        endVerse: end,
-        isSurahStart: isStart,
-        showBasmala: showBasmala,
-        verses: verses,
-      ));
-    }
-
     return QuranPageData(
       pageNumber: pageNumber,
       juzNumber: juzNumber,
       primarySurahName: primarySurahName,
-      segments: segments,
     );
   }
 

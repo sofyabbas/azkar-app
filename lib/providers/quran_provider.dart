@@ -1,22 +1,17 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/quran_models.dart';
 import '../services/quran_service.dart';
-
-enum QuranThemeType {
-  cream, // Warm Mushaf Paper (Default)
-  sepia, // Classic Vintage Paper
-  dark,  // Night Reading Mode
-}
 
 class QuranProvider extends ChangeNotifier {
   final QuranService _service = QuranService();
 
   int _currentPage = 1;
   int? _lastReadPage;
-  double _fontSize = 24.0;
-  QuranThemeType _themeType = QuranThemeType.cream;
+  QuranReadingFilter _readingFilter = QuranReadingFilter.original;
+  QuranPageFit _pageFit = QuranPageFit.stretchWidth;
   bool _isFullScreen = false;
   bool _isLoading = false;
 
@@ -26,8 +21,8 @@ class QuranProvider extends ChangeNotifier {
 
   int get currentPage => _currentPage;
   int? get lastReadPage => _lastReadPage;
-  double get fontSize => _fontSize;
-  QuranThemeType get themeType => _themeType;
+  QuranReadingFilter get readingFilter => _readingFilter;
+  QuranPageFit get pageFit => _pageFit;
   bool get isFullScreen => _isFullScreen;
   bool get isLoading => _isLoading;
   List<QuranBookmark> get bookmarks => List.unmodifiable(_bookmarks);
@@ -45,11 +40,15 @@ class QuranProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       _lastReadPage = prefs.getInt('quran_last_read_page') ?? 1;
-      _fontSize = prefs.getDouble('quran_font_size') ?? 24.0;
 
-      final themeIndex = prefs.getInt('quran_theme_type') ?? 0;
-      if (themeIndex >= 0 && themeIndex < QuranThemeType.values.length) {
-        _themeType = QuranThemeType.values[themeIndex];
+      final filterIndex = prefs.getInt('quran_reading_filter') ?? 0;
+      if (filterIndex >= 0 && filterIndex < QuranReadingFilter.values.length) {
+        _readingFilter = QuranReadingFilter.values[filterIndex];
+      }
+
+      final fitIndex = prefs.getInt('quran_page_fit') ?? 1;
+      if (fitIndex >= 0 && fitIndex < QuranPageFit.values.length) {
+        _pageFit = QuranPageFit.values[fitIndex];
       }
 
       // Load bookmarks
@@ -64,10 +63,8 @@ class QuranProvider extends ChangeNotifier {
         }
       }
 
-      // Pre-warm initial pages
       if (_lastReadPage != null) {
         _currentPage = _lastReadPage!;
-        _service.prefetchPages(_currentPage, radius: 3);
       }
     } catch (e) {
       debugPrint('Error loading Quran preferences: $e');
@@ -84,7 +81,6 @@ class QuranProvider extends ChangeNotifier {
 
     if (_currentPage != page) {
       _currentPage = page;
-      _service.prefetchPages(page, radius: 2);
       if (autoSave) {
         saveLastReadPage(page);
       }
@@ -100,37 +96,56 @@ class QuranProvider extends ChangeNotifier {
     await prefs.setInt('quran_last_read_page', page);
   }
 
-  /// Changes font size dynamically
-  Future<void> setFontSize(double size) async {
-    final clamped = size.clamp(16.0, 42.0);
-    if (_fontSize != clamped) {
-      _fontSize = clamped;
+  /// Changes reading tone filter
+  Future<void> setReadingFilter(QuranReadingFilter filter) async {
+    if (_readingFilter != filter) {
+      _readingFilter = filter;
       notifyListeners();
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble('quran_font_size', clamped);
+      await prefs.setInt('quran_reading_filter', filter.index);
     }
   }
 
-  /// Changes theme mode
-  Future<void> setThemeType(QuranThemeType type) async {
-    if (_themeType != type) {
-      _themeType = type;
+  /// Pre-caches neighboring page assets in memory
+  void precacheAdjacentImages(BuildContext context, int page) {
+    for (int offset in [-2, -1, 1, 2]) {
+      final targetPage = page + offset;
+      if (targetPage >= 1 && targetPage <= 604) {
+        final path = QuranService.getPageAssetPath(targetPage);
+        precacheImage(AssetImage(path), context).catchError((_) {});
+      }
+    }
+  }
+
+  /// Sets page fit mode (contain or stretch width)
+  Future<void> setPageFit(QuranPageFit fit) async {
+    if (_pageFit != fit) {
+      _pageFit = fit;
       notifyListeners();
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('quran_theme_type', type.index);
+      await prefs.setInt('quran_page_fit', fit.index);
     }
   }
 
   /// Toggles full-screen immersion
   void toggleFullScreen() {
-    _isFullScreen = !_isFullScreen;
-    notifyListeners();
+    setFullScreen(!_isFullScreen);
   }
 
   void setFullScreen(bool value) {
     if (_isFullScreen != value) {
       _isFullScreen = value;
+      applySystemUiMode(value);
       notifyListeners();
+    }
+  }
+
+  /// Applies system UI mode for full screen vs edge to edge
+  void applySystemUiMode(bool immersive) {
+    if (immersive) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
   }
 

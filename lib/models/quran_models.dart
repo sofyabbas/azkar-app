@@ -1,52 +1,24 @@
-class QuranVerse {
-  final int surahNumber;
-  final int verseNumber;
-  final String text;
-  final int juzNumber;
-  final int pageNumber;
-
-  const QuranVerse({
-    required this.surahNumber,
-    required this.verseNumber,
-    required this.text,
-    required this.juzNumber,
-    required this.pageNumber,
-  });
+enum QuranReadingFilter {
+  original, // أصل ورقة المصحف الشريف
+  sepia,    // الوضع الدافئ المريح للعين
+  dark,     // الوضع الليلي المعكوس للقراءة في الظلام
+  mint,     // الوضع الهادئ المخفف لإجهاد العين
 }
 
-class QuranSurahPageSegment {
-  final int surahNumber;
-  final String surahNameArabic;
-  final String surahNameEnglish;
-  final int startVerse;
-  final int endVerse;
-  final bool isSurahStart;
-  final bool showBasmala;
-  final List<QuranVerse> verses;
-
-  const QuranSurahPageSegment({
-    required this.surahNumber,
-    required this.surahNameArabic,
-    required this.surahNameEnglish,
-    required this.startVerse,
-    required this.endVerse,
-    required this.isSurahStart,
-    required this.showBasmala,
-    required this.verses,
-  });
+enum QuranPageFit {
+  contain,      // ملاءمة واحتواء الصفحة
+  stretchWidth, // فرد كامل على عرض وارتفاع الشاشة
 }
 
 class QuranPageData {
   final int pageNumber;
   final int juzNumber;
   final String primarySurahName;
-  final List<QuranSurahPageSegment> segments;
 
   const QuranPageData({
     required this.pageNumber,
     required this.juzNumber,
     required this.primarySurahName,
-    required this.segments,
   });
 }
 
@@ -133,3 +105,4 @@ class QuranSearchResult {
     required this.juzNumber,
   });
 }
+

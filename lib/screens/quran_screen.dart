@@ -70,7 +70,7 @@ class _QuranScreenState extends State<QuranScreen> with SingleTickerProviderStat
                 context: context,
                 builder: (ctx) => AlertDialog(
                   title: const Text(
-                    'مصدر بيانات المصحف',
+                    'مصحف المدينة المنورة',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor),
                   ),
@@ -80,15 +80,23 @@ class _QuranScreenState extends State<QuranScreen> with SingleTickerProviderStat
                       const Icon(Icons.verified, color: Color(0xFFCBB282), size: 48),
                       const SizedBox(height: 12),
                       const Text(
-                        'النص القرآني المعتمد في هذا التطبيق مستخرج ومطابق بنسبة 100% لمشروع تنزيل العالمي (Tanzil.net).',
+                        'المصحف المصور عالي الدقة المعتمد في هذا التطبيق مستخرج من طبعة مجمع الملك فهد لطباعة المصحف الشريف بالمدينة المنورة.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 14, height: 1.6),
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        '• الرواية: حفص عن عاصم\n• الرسم: الرسم العثماني (مصحف المدينة المنورة)\n• عدد الصفحات: 604 صفحة\n• المصدر: Tanzil Quran Project (Tanzil.net)',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.7),
-                        textAlign: TextAlign.right,
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF6FAF9),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE5D8BA)),
+                        ),
+                        child: Text(
+                          '• الرواية: حفص عن عاصم\n• الطبعة: مجمع الملك فهد لطباعة المصحف الشريف (المدينة المنورة)\n• عدد الصفحات: 604 صفحة (مصورة محلياً بالكامل 100% بدون إنترنت)\n• المميزات: فرد على كامل شاشة الهاتف، تكبير تفاعلي، فلاتر إضاءة متعددة، وعلامات مرجعية',
+                          style: TextStyle(fontSize: 12, color: Colors.grey[800], height: 1.8),
+                          textAlign: TextAlign.right,
+                        ),
                       ),
                     ],
                   ),
