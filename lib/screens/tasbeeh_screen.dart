@@ -162,15 +162,15 @@ class _TasbeehScreenState extends State<TasbeehScreen> {
                       const SizedBox(height: 12),
 
                       // TARGET COUNT SELECTOR CHIPS (33 | 100 | مفتوح)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 6,
                         children: [
                           const Text('الهدف: ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 13)),
-                          const SizedBox(width: 8),
                           _buildTargetChip(33, '33 مرة'),
-                          const SizedBox(width: 8),
                           _buildTargetChip(100, '100 مرة'),
-                          const SizedBox(width: 8),
                           _buildTargetChip(0, 'مفتوح ∞'),
                         ],
                       ),

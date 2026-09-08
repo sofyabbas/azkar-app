@@ -106,3 +106,58 @@ class QuranSearchResult {
   });
 }
 
+class QuranVerseMeaning {
+  final String word;
+  final String meaning;
+
+  const QuranVerseMeaning({
+    required this.word,
+    required this.meaning,
+  });
+
+  factory QuranVerseMeaning.fromJson(Map<String, dynamic> json) => QuranVerseMeaning(
+        word: json['word'] as String,
+        meaning: json['meaning'] as String,
+      );
+}
+
+class QuranReciter {
+  final String id;
+  final String name;
+  final String url;
+
+  const QuranReciter({
+    required this.id,
+    required this.name,
+    required this.url,
+  });
+
+  factory QuranReciter.fromJson(Map<String, dynamic> json) => QuranReciter(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        url: json['url'] as String,
+      );
+}
+
+class QuranSubject {
+  final String id;
+  final String chapterId;
+  final String subject;
+  final String subSubject;
+
+  const QuranSubject({
+    required this.id,
+    required this.chapterId,
+    required this.subject,
+    required this.subSubject,
+  });
+
+  factory QuranSubject.fromJson(Map<String, dynamic> json) => QuranSubject(
+        id: json['id']?.toString() ?? '',
+        chapterId: json['chapter_id']?.toString() ?? '',
+        subject: json['subject']?.toString() ?? '',
+        subSubject: json['sub_subject']?.toString() ?? '',
+      );
+}
+
+

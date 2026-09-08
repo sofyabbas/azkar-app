@@ -25,6 +25,7 @@ class _ZikrCardState extends State<ZikrCard> {
   late int currentCount;
   late int targetCount;
   DateTime? _lastTapTime;
+  bool _isOptionsExpanded = false;
 
   @override
   void initState() {
@@ -52,6 +53,8 @@ class _ZikrCardState extends State<ZikrCard> {
           setState(() {
             currentCount = savedCount;
           });
+          final completedReps = (targetCount - savedCount).clamp(0, targetCount);
+          Provider.of<AzkarProvider>(context, listen: false).updateZikrProgress(widget.zikr.id, completedReps, savedCount == 0);
         }
         return;
       }
@@ -79,6 +82,9 @@ class _ZikrCardState extends State<ZikrCard> {
       currentCount = newTarget;
     });
     await _saveProgress(newTarget);
+    if (mounted) {
+      Provider.of<AzkarProvider>(context, listen: false).updateZikrProgress(widget.zikr.id, 0, false);
+    }
   }
 
   void _decrementCount() {
@@ -89,11 +95,16 @@ class _ZikrCardState extends State<ZikrCard> {
     _lastTapTime = now;
 
     if (currentCount > 0) {
+      final newCount = currentCount - 1;
       setState(() {
-        currentCount--;
+        currentCount = newCount;
       });
-      _saveProgress(currentCount);
-      Provider.of<AzkarProvider>(context, listen: false).incrementTotalAzkarRead();
+      _saveProgress(newCount);
+      final azkarProvider = Provider.of<AzkarProvider>(context, listen: false);
+      azkarProvider.incrementTotalAzkarRead();
+      final completedReps = (targetCount - newCount).clamp(0, targetCount);
+      azkarProvider.updateZikrProgress(widget.zikr.id, completedReps, newCount == 0);
+
       Provider.of<StatsProvider>(context, listen: false).recordZikrRead(
         categoryId: widget.categoryId,
         count: 1,
@@ -106,7 +117,9 @@ class _ZikrCardState extends State<ZikrCard> {
       currentCount = targetCount;
     });
     _saveProgress(currentCount);
+    Provider.of<AzkarProvider>(context, listen: false).updateZikrProgress(widget.zikr.id, 0, false);
   }
+
 
   String _getVirtueText(int count) {
     switch (count) {
@@ -123,74 +136,140 @@ class _ZikrCardState extends State<ZikrCard> {
 
   Widget _buildCountOptionsSelector(ThemeData theme) {
     return Container(
-      margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(top: 14),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: _isOptionsExpanded
+              ? theme.colorScheme.primary.withValues(alpha: 0.35)
+              : theme.colorScheme.primary.withValues(alpha: 0.15),
+        ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Icon(Icons.tune, size: 18, color: theme.colorScheme.primary),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'اختر عدد التكرار المناسب لوقتك:',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.primary,
+          // The Toggle Button
+          InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () {
+              setState(() {
+                _isOptionsExpanded = !_isOptionsExpanded;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Icon(Icons.tune_rounded, size: 18, color: theme.colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'خيارات التكرار: $targetCount ${targetCount == 1 ? 'مرة' : 'مرات'}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
                   ),
-                ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _isOptionsExpanded ? 'إخفاء' : 'تغيير',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(
+                          _isOptionsExpanded
+                              ? Icons.keyboard_arrow_up_rounded
+                              : Icons.keyboard_arrow_down_rounded,
+                          size: 16,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: widget.zikr.countOptions!.map((opt) {
-              final isSelected = targetCount == opt;
-              String labelText = '$opt مرة';
-              if (opt == 100) labelText = '100 مرة (الأكمل)';
-              if (opt == 10) labelText = '10 مرات';
-              if (opt == 1) labelText = 'مرة واحدة';
-
-              return ChoiceChip(
-                label: Text(labelText),
-                selected: isSelected,
-                selectedColor: theme.colorScheme.primary,
-                labelStyle: TextStyle(
-                  color: isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  fontSize: 12,
-                ),
-                onSelected: (selected) {
-                  if (selected) {
-                    _onTargetChanged(opt);
-                  }
-                },
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(
-              _getVirtueText(targetCount),
-              style: TextStyle(
-                fontSize: 12,
-                color: theme.colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.w500,
+          ),
+
+          // Collapsible Content
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 250),
+            crossFadeState: _isOptionsExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(height: 12),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: widget.zikr.countOptions!.map((opt) {
+                      final isSelected = targetCount == opt;
+                      String labelText = '$opt مرة';
+                      if (opt == 100) labelText = '100 مرة (الأكمل)';
+                      if (opt == 10) labelText = '10 مرات';
+                      if (opt == 1) labelText = 'مرة واحدة';
+
+                      return ChoiceChip(
+                        label: Text(labelText),
+                        selected: isSelected,
+                        selectedColor: theme.colorScheme.primary,
+                        labelStyle: TextStyle(
+                          color: isSelected
+                              ? theme.colorScheme.onPrimary
+                              : theme.colorScheme.onSurface,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 12,
+                        ),
+                        onSelected: (selected) {
+                          if (selected) {
+                            _onTargetChanged(opt);
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      _getVirtueText(targetCount),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w500,
+                        height: 1.4,
+                      ),
+                      textDirection: TextDirection.rtl,
+                    ),
+                  ),
+                ],
               ),
-              textDirection: TextDirection.rtl,
             ),
           ),
         ],
@@ -222,45 +301,28 @@ class _ZikrCardState extends State<ZikrCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header with Favorite Heart button
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Consumer<AzkarProvider>(
-                    builder: (context, azkarProvider, child) {
-                      final isFav = azkarProvider.isFavoriteZikr(widget.zikr.id);
-                      return IconButton(
-                        icon: Icon(
-                          isFav ? Icons.favorite : Icons.favorite_border,
-                          color: isFav ? Colors.red : Colors.grey[400],
-                          size: 24,
-                        ),
-                        onPressed: () {
-                          azkarProvider.toggleFavoriteZikr(widget.zikr.id);
-                        },
-                        tooltip: isFav ? 'إزالة من المفضلة' : 'إضافة إلى المفضلة',
-                      );
-                    },
-                  ),
-                  if (widget.index != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'الذكر #${widget.index}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.primary,
-                        ),
+              // Header with Zikr Index Badge (if available)
+              if (widget.index != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'الذكر #${widget.index}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
                       ),
                     ),
-                ],
-              ),
-              const SizedBox(height: 8),
+                  ),
+                ),
+              const SizedBox(height: 4),
 
               // Arabic Text
               Consumer<AzkarProvider>(
@@ -290,7 +352,7 @@ class _ZikrCardState extends State<ZikrCard> {
                   ),
                 ),
 
-              // Interactive count options selector if available
+              // Interactive count options selector (hidden under button by default)
               if (hasOptions) _buildCountOptionsSelector(theme),
 
               const SizedBox(height: 24),
@@ -299,10 +361,15 @@ class _ZikrCardState extends State<ZikrCard> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   if (isCompleted)
-                    TextButton.icon(
-                      onPressed: _resetCount,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('إعادة التسبيح'),
+                    Flexible(
+                      child: TextButton.icon(
+                        onPressed: _resetCount,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text(
+                          'إعادة التسبيح',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     )
                   else
                     const SizedBox.shrink(),
@@ -319,12 +386,18 @@ class _ZikrCardState extends State<ZikrCard> {
                     child: Center(
                       child: isCompleted
                           ? Icon(Icons.check, color: theme.colorScheme.primary, size: 30)
-                          : Text(
-                              '$currentCount',
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                          : FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Padding(
+                                padding: const EdgeInsets.all(6.0),
+                                child: Text(
+                                  '$currentCount',
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
                               ),
                             ),
                     ),

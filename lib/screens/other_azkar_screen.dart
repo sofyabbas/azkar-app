@@ -30,7 +30,7 @@ class OtherAzkarScreen extends StatelessWidget {
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 1.9,
+                childAspectRatio: 1.8,
               ),
               itemCount: otherCategories.length,
               itemBuilder: (context, index) {

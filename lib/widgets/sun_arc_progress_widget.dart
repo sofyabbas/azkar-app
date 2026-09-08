@@ -54,7 +54,7 @@ class SunArcProgressWidget extends StatelessWidget {
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 250),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     decoration: BoxDecoration(
                       color: isActive ? const Color(0xFF1E3A37) : Colors.transparent,
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),

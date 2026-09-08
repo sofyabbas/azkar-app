@@ -1,0 +1,52 @@
+[
+  {
+    "id": "afasy",
+    "name": "مشاري راشد العفاسي",
+    "url": "https://server8.mp3quran.net/afs"
+  },
+  {
+    "id": "minshawi",
+    "name": "محمد صديق المنشاوي (مرتل)",
+    "url": "https://server10.mp3quran.net/minsh"
+  },
+  {
+    "id": "husary",
+    "name": "محمود خليل الحصري",
+    "url": "https://server13.mp3quran.net/husr"
+  },
+  {
+    "id": "abdulbasit",
+    "name": "عبد الباسط عبد الصمد (مرتل)",
+    "url": "https://server7.mp3quran.net/basit"
+  },
+  {
+    "id": "maher",
+    "name": "ماهر المعيقلي",
+    "url": "https://server12.mp3quran.net/maher"
+  },
+  {
+    "id": "shatri",
+    "name": "أبو بكر الشاطري",
+    "url": "https://server11.mp3quran.net/shatri"
+  },
+  {
+    "id": "ghamdi",
+    "name": "سعد الغامدي",
+    "url": "https://server7.mp3quran.net/s_gmd"
+  },
+  {
+    "id": "ajamy",
+    "name": "أحمد بن علي العجمي",
+    "url": "https://server10.mp3quran.net/ajm"
+  },
+  {
+    "id": "hudhaify",
+    "name": "علي بن عبد الرحمن الحذيفي",
+    "url": "https://server9.mp3quran.net/hthfi"
+  },
+  {
+    "id": "yasser",
+    "name": "ياسر الدوسري",
+    "url": "https://server11.mp3quran.net/yasser"
+  }
+]

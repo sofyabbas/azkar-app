@@ -106,16 +106,19 @@ class QuranProvider extends ChangeNotifier {
     }
   }
 
-  /// Pre-caches neighboring page assets in memory
-  void precacheAdjacentImages(BuildContext context, int page) {
-    for (int offset in [-2, -1, 1, 2]) {
-      final targetPage = page + offset;
-      if (targetPage >= 1 && targetPage <= 604) {
-        final path = QuranService.getPageAssetPath(targetPage);
-        precacheImage(AssetImage(path), context).catchError((_) {});
-      }
-    }
+  double _fontSize = 22.0;
+  double get fontSize => _fontSize;
+
+  Future<void> setFontSize(double size) async {
+    _fontSize = size.clamp(16.0, 34.0);
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('quran_font_size', _fontSize);
   }
+
+  /// No-op: page rendering is now text-based and lightweight
+  void precacheAdjacentImages(BuildContext context, int page) {}
+
 
   /// Sets page fit mode (contain or stretch width)
   Future<void> setPageFit(QuranPageFit fit) async {

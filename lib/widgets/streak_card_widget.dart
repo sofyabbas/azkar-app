@@ -71,19 +71,20 @@ class StreakCardWidget extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Text(
-                                streak == 0
-                                    ? 'ابدأ مواظبتك اليوم!'
-                                    : 'أنت مواظب منذ $streak ${streak == 1 ? 'يوم' : 'أيام'}!',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              streak == 0
+                                  ? 'ابدأ مواظبتك اليوم!'
+                                  : 'أنت مواظب منذ $streak ${streak == 1 ? 'يوم' : 'أيام'}!',
+                              maxLines: 1,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
                               ),
-                            ],
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Container(
@@ -174,12 +175,16 @@ class StreakCardWidget extends StatelessWidget {
                     children: [
                       const Icon(Icons.emoji_events, color: Color(0xFFFFD700), size: 16),
                       const SizedBox(width: 6),
-                      Text(
-                        'أطول سلسلة مواظبة: $longest ${longest == 1 ? 'يوم' : 'أيام'} متتالية 🏆',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          'أطول سلسلة مواظبة: $longest ${longest == 1 ? 'يوم' : 'أيام'} متتالية 🏆',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],

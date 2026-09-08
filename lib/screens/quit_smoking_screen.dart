@@ -142,7 +142,7 @@ class QuitSmokingScreen extends StatelessWidget {
           crossAxisCount: 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 1.45,
+          childAspectRatio: 1.35,
           children: [
             _buildStatCard(
               theme,

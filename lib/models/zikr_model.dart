@@ -51,3 +51,18 @@ class AzkarCategory {
     );
   }
 }
+
+class CategoryProgress {
+  final int completedCount;
+  final int totalCount;
+
+  const CategoryProgress({
+    required this.completedCount,
+    required this.totalCount,
+  });
+
+  double get progress => totalCount == 0 ? 0.0 : (completedCount / totalCount).clamp(0.0, 1.0);
+  bool get isCompleted => totalCount > 0 && completedCount >= totalCount;
+  int get percent => (progress * 100).round();
+}
+

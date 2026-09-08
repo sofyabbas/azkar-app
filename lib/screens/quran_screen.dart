@@ -5,6 +5,9 @@ import '../models/quran_models.dart';
 import '../providers/quran_provider.dart';
 import '../services/quran_service.dart';
 import 'quran_reading_screen.dart';
+import 'quran_doaa_screen.dart';
+import 'quran_waqf_screen.dart';
+
 
 class QuranScreen extends StatefulWidget {
   const QuranScreen({super.key});
@@ -63,52 +66,9 @@ class _QuranScreenState extends State<QuranScreen> with SingleTickerProviderStat
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.info_outline, color: Colors.white70),
-            tooltip: 'عن المصحف والمصدر',
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text(
-                    'مصحف المدينة المنورة',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor),
-                  ),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.verified, color: Color(0xFFCBB282), size: 48),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'المصحف المصور عالي الدقة المعتمد في هذا التطبيق مستخرج من طبعة مجمع الملك فهد لطباعة المصحف الشريف بالمدينة المنورة.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 14, height: 1.6),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF6FAF9),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE5D8BA)),
-                        ),
-                        child: Text(
-                          '• الرواية: حفص عن عاصم\n• الطبعة: مجمع الملك فهد لطباعة المصحف الشريف (المدينة المنورة)\n• عدد الصفحات: 604 صفحة (مصورة محلياً بالكامل 100% بدون إنترنت)\n• المميزات: فرد على كامل شاشة الهاتف، تكبير تفاعلي، فلاتر إضاءة متعددة، وعلامات مرجعية',
-                          style: TextStyle(fontSize: 12, color: Colors.grey[800], height: 1.8),
-                          textAlign: TextAlign.right,
-                        ),
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('إغلاق', style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-              );
-            },
+            icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 26),
+            tooltip: 'قائمة المصحف',
+            onPressed: () => _showQuranBurgerMenu(context, provider),
           ),
         ],
         backgroundColor: primaryColor,
@@ -209,6 +169,7 @@ class _QuranScreenState extends State<QuranScreen> with SingleTickerProviderStat
   Widget _buildLastReadCard(QuranProvider provider) {
     final lastPage = provider.lastReadPage ?? 1;
     final pageData = _quranService.getPageDataSync(lastPage);
+    final double khatmahPercent = (lastPage / 604 * 100).clamp(0.0, 100.0);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -228,63 +189,94 @@ class _QuranScreenState extends State<QuranScreen> with SingleTickerProviderStat
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFCBB282).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFCBB282), width: 1.2),
-            ),
-            child: const Icon(Icons.menu_book, color: Color(0xFFEADBBE), size: 28),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBB282).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFCBB282), width: 1.2),
+                ),
+                child: const Icon(Icons.menu_book, color: Color(0xFFEADBBE), size: 28),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'متابعة الختمة القرآنية',
+                      style: TextStyle(color: Color(0xFFEADBBE), fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'سورة ${pageData.primarySurahName}',
+                      style: GoogleFonts.amiri(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      'صفحة $lastPage من 604 • الجزء ${pageData.juzNumber}',
+                      style: const TextStyle(fontSize: 12, color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFCBB282),
+                  foregroundColor: const Color(0xFF1E3A37),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                ),
+                onPressed: () => _openReadingScreen(context, lastPage),
+                icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                label: const Text('متابعة', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'آخر صفحة مقروءة',
-                  style: TextStyle(color: Color(0xFFEADBBE), fontSize: 12, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'سورة ${pageData.primarySurahName}',
-                  style: GoogleFonts.amiri(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  'صفحة $lastPage — الجزء ${pageData.juzNumber}',
-                  style: const TextStyle(fontSize: 12, color: Colors.white70),
-                ),
-              ],
+          const SizedBox(height: 12),
+          // Khatmah Progress Bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: lastPage / 604,
+              minHeight: 5,
+              backgroundColor: Colors.white.withValues(alpha: 0.15),
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFCBB282)),
             ),
           ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFCBB282),
-              foregroundColor: const Color(0xFF1E3A37),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            ),
-            onPressed: () => _openReadingScreen(context, lastPage),
-            icon: const Icon(Icons.play_arrow_rounded, size: 18),
-            label: const Text('متابعة', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'إنجاز الختمة: ${khatmahPercent.toStringAsFixed(1)}%',
+                style: const TextStyle(color: Color(0xFFEADBBE), fontSize: 11, fontWeight: FontWeight.w600),
+              ),
+              Text(
+                'متبقي ${604 - lastPage} صفحة',
+                style: const TextStyle(color: Colors.white60, fontSize: 11),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
+
+
   Widget _buildSurahsTab(QuranProvider provider) {
     return Column(
       children: [
         _buildLastReadCard(provider),
-        _buildQuickJumpBar(provider),
+
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -335,6 +327,8 @@ class _QuranScreenState extends State<QuranScreen> with SingleTickerProviderStat
                             children: [
                               Text(
                                 surah.nameEnglish,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
@@ -342,24 +336,35 @@ class _QuranScreenState extends State<QuranScreen> with SingleTickerProviderStat
                                 ),
                               ),
                               const SizedBox(height: 3),
-                              Row(
+                              Wrap(
+                                spacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
-                                  Icon(
-                                    surah.isMeccan ? Icons.wb_sunny_outlined : Icons.mosque_outlined,
-                                    size: 13,
-                                    color: Colors.grey[600],
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        surah.isMeccan ? Icons.wb_sunny_outlined : Icons.mosque_outlined,
+                                        size: 13,
+                                        color: Colors.grey[600],
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        surah.isMeccan ? 'مكية' : 'مدنية',
+                                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    surah.isMeccan ? 'مكية' : 'مدنية',
-                                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Icon(Icons.format_list_numbered, size: 13, color: Colors.grey),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${surah.versesCount} آية',
-                                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.format_list_numbered, size: 13, color: Colors.grey),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${surah.versesCount} آية',
+                                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -512,54 +517,240 @@ class _QuranScreenState extends State<QuranScreen> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildQuickJumpBar(QuranProvider provider) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _pageJumpController,
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.right,
-              onSubmitted: (val) {
-                final page = int.tryParse(val);
-                if (page != null && page >= 1 && page <= 604) {
-                  _pageJumpController.clear();
-                  _openReadingScreen(context, page);
-                }
-              },
-              decoration: InputDecoration(
-                hintText: 'انتقال سريع لرقم صفحة (1 - 604)...',
-                hintStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
-                prefixIcon: const Icon(Icons.find_in_page_outlined, color: primaryColor),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.arrow_forward, color: primaryColor),
-                  onPressed: () {
-                    final page = int.tryParse(_pageJumpController.text);
-                    if (page != null && page >= 1 && page <= 604) {
-                      _pageJumpController.clear();
-                      _openReadingScreen(context, page);
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('الرجاء إدخال رقم صفحة صحيح بين 1 و 604')),
-                      );
-                    }
-                  },
+  void _showQuranBurgerMenu(BuildContext context, QuranProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 4.5,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(3),
                 ),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'قائمة خيارات المصحف',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(),
+
+              // 1. Jump to Page
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCBB282).withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.find_in_page_rounded, color: Color(0xFF8B6F3E)),
+                ),
+                title: const Text('انتقال سريع إلى صفحة', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('الذهاب مباشرة لأي صفحة من 1 إلى 604'),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showPageJumpDialog(context, provider);
+                },
+              ),
+
+              // 2. Duaa Khatm
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.auto_stories_rounded, color: primaryColor),
+                ),
+                title: const Text('دعاء ختم القرآن الكريم', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('دعاء ختم القرآن المأثور مكتوباً ومشكولاً'),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(context, MaterialPageRoute(builder: (c) => const QuranDoaaScreen()));
+                },
+              ),
+
+              // 3. Waqf Marks
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2C6B56).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.flag_rounded, color: Color(0xFF2C6B56)),
+                ),
+                title: const Text('علامات الوقف ومصطلحات الضبط', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('دليل علامات الوقف في مصحف المدينة المنورة'),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(context, MaterialPageRoute(builder: (c) => const QuranWaqfScreen()));
+                },
+              ),
+
+              // 4. About Mushaf
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blueGrey.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.verified_rounded, color: Colors.blueGrey),
+                ),
+                title: const Text('عن مصحف المدينة المنورة', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('معلومات الطبعة والرواية والتوثيق المعتمد'),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showAboutMushafDialog(context);
+                },
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showPageJumpDialog(BuildContext context, QuranProvider provider) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'انتقال إلى صفحة',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'الصفحة الحالية: ${provider.currentPage}',
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              autofocus: true,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              decoration: InputDecoration(
+                hintText: 'أدخل رقم الصفحة (1 - 604)',
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: const Color(0xFFF6FAF9),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
+                  borderSide: BorderSide.none,
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: Colors.grey[200]!),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
               ),
             ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              final page = int.tryParse(controller.text.trim());
+              if (page != null && page >= 1 && page <= 604) {
+                Navigator.pop(ctx);
+                _openReadingScreen(context, page);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('الرجاء إدخال رقم صفحة صحيح بين 1 و 604')),
+                );
+              }
+            },
+            child: const Text('انتقال'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAboutMushafDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'مصحف المدينة المنورة',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.verified, color: Color(0xFFCBB282), size: 48),
+            const SizedBox(height: 12),
+            const Text(
+              'المصحف المصور عالي الدقة المعتمد في هذا التطبيق مستخرج من طبعة مجمع الملك فهد لطباعة المصحف الشريف بالمدينة المنورة.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, height: 1.6),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF6FAF9),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE5D8BA)),
+              ),
+              child: Text(
+                '• الرواية: حفص عن عاصم\n• الطبعة: مجمع الملك فهد لطباعة المصحف الشريف (المدينة المنورة)\n• عدد الصفحات: 604 صفحة\n• المميزات: تلاوة آية بآية مع تظليل الآية، تكبير تفاعلي، فلاتر إضاءة، وعلامات مرجعية',
+                style: TextStyle(fontSize: 12, color: Colors.grey[800], height: 1.8),
+                textAlign: TextAlign.right,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إغلاق', style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

@@ -129,7 +129,7 @@ class HomeScreen extends StatelessWidget {
                     crossAxisCount: 2,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: 1.9,
+                    childAspectRatio: 1.8,
                   ),
                   itemCount: gridItemCount,
                   itemBuilder: (context, index) {
@@ -278,13 +278,17 @@ class HomeScreen extends StatelessWidget {
             children: [
               Icon(icon, size: 26, color: primaryColor),
               const SizedBox(height: 6),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: primaryColor,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: primaryColor,
+                  ),
                 ),
               ),
             ],
@@ -345,6 +349,8 @@ class HomeScreen extends StatelessWidget {
                     SizedBox(height: 2),
                     Text(
                       'إدراك التكبيرة الأولى في جماعة',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                   ],
@@ -413,6 +419,8 @@ class HomeScreen extends StatelessWidget {
                     SizedBox(height: 2),
                     Text(
                       'عرض تقدمك اليومي وإحصائيات قراءة الأذكار',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                   ],

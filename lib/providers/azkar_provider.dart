@@ -14,8 +14,11 @@ class AzkarProvider with ChangeNotifier {
   
   Set<String> _favoriteCategoryIds = {};
   Set<String> _favoriteZikrIds = {};
+  Set<String> _todayCompletedZikrIds = {};
+  final Map<String, int> _todayZikrProgress = {};
   
   int _totalAzkarRead = 0;
+
   User? _currentUser;
 
   double _fontSize = 22.0;
@@ -26,6 +29,7 @@ class AzkarProvider with ChangeNotifier {
   int get totalAzkarRead => _totalAzkarRead;
   Set<String> get favoriteCategoryIds => _favoriteCategoryIds;
   Set<String> get favoriteZikrIds => _favoriteZikrIds;
+  Set<String> get todayCompletedZikrIds => _todayCompletedZikrIds;
   double get fontSize => _fontSize;
   User? get currentUser => _currentUser;
 
@@ -132,6 +136,7 @@ class AzkarProvider with ChangeNotifier {
       final String response = await rootBundle.loadString('assets/data/azkar.json');
       final List<dynamic> data = json.decode(response);
       _categories = data.map((json) => AzkarCategory.fromJson(json)).toList();
+      await _loadTodayCompletedZikrs();
     } catch (e) {
       debugPrint("Error loading Azkar data: $e");
       _errorMessage = e.toString();
@@ -140,6 +145,76 @@ class AzkarProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<void> _loadTodayCompletedZikrs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      final Set<String> completed = {};
+
+      for (var cat in _categories) {
+        for (var item in cat.items) {
+          final savedDate = prefs.getString('zikr_date_${item.id}');
+          if (savedDate == today) {
+            final savedCount = prefs.getInt('zikr_${item.id}');
+            if (savedCount != null) {
+              final target = prefs.getInt('target_${item.id}') ?? item.count;
+              final done = (target - savedCount).clamp(0, target);
+              _todayZikrProgress[item.id] = done;
+              if (savedCount == 0) {
+                completed.add(item.id);
+              }
+            }
+          }
+        }
+      }
+      _todayCompletedZikrIds = completed;
+    } catch (e) {
+      debugPrint("Error loading today completed zikrs: $e");
+    }
+  }
+
+  void updateZikrProgress(String zikrId, int completedReps, bool isCompleted) {
+    _todayZikrProgress[zikrId] = completedReps;
+    if (isCompleted) {
+      _todayCompletedZikrIds.add(zikrId);
+    } else {
+      _todayCompletedZikrIds.remove(zikrId);
+    }
+    notifyListeners();
+  }
+
+  void markZikrCompletedToday(String zikrId, bool isCompleted) {
+    if (isCompleted) {
+      _todayCompletedZikrIds.add(zikrId);
+    } else {
+      _todayCompletedZikrIds.remove(zikrId);
+      _todayZikrProgress[zikrId] = 0;
+    }
+    notifyListeners();
+  }
+
+  CategoryProgress getCategoryProgress(AzkarCategory category) {
+    if (category.items.isEmpty) {
+      return const CategoryProgress(completedCount: 0, totalCount: 0);
+    }
+    int totalReps = 0;
+    int completedReps = 0;
+
+    for (var item in category.items) {
+      final reps = item.count;
+      totalReps += reps;
+      if (_todayCompletedZikrIds.contains(item.id)) {
+        completedReps += reps;
+      } else {
+        final done = _todayZikrProgress[item.id] ?? 0;
+        completedReps += done.clamp(0, reps);
+      }
+    }
+
+    return CategoryProgress(completedCount: completedReps, totalCount: totalReps);
+  }
+
 
   Future<void> toggleFavoriteCategory(String id) async {
     if (_favoriteCategoryIds.contains(id)) {
@@ -193,15 +268,7 @@ class AzkarProvider with ChangeNotifier {
   }
 
   Future<bool> isCategoryCompletedToday(AzkarCategory category) async {
-    final prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-
-    for (var item in category.items) {
-      final savedDate = prefs.getString('zikr_date_${item.id}');
-      if (savedDate != today) return false;
-      final savedCount = prefs.getInt('zikr_${item.id}');
-      if (savedCount == null || savedCount > 0) return false;
-    }
-    return true;
+    if (category.items.isEmpty) return false;
+    return getCategoryProgress(category).isCompleted;
   }
 }

@@ -377,17 +377,23 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // Prayer Name
-          Text(
-            name,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: isHighlighted ? FontWeight.bold : FontWeight.w600,
-              color: const Color(0xFF1C2726),
+          Expanded(
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: isHighlighted ? FontWeight.bold : FontWeight.w600,
+                color: const Color(0xFF1C2726),
+              ),
             ),
           ),
+          const SizedBox(width: 8),
 
           // Time & Speaker Icon
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 provider.formatTimeWithAmPm(time, locale: _useEnglishFormat ? 'en' : 'ar'),
@@ -432,15 +438,21 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            isEnglish ? 'Qiyam' : 'قيام الليل',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1C2726),
+          Expanded(
+            child: Text(
+              isEnglish ? 'Qiyam' : 'قيام الليل',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1C2726),
+              ),
             ),
           ),
+          const SizedBox(width: 8),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 provider.formatTimeWithAmPm(qiyamTime, locale: isEnglish ? 'en' : 'ar'),
@@ -496,75 +508,77 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
             right: 20,
             bottom: MediaQuery.of(context).viewInsets.bottom + 20,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'اختر المدينة',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // GPS Auto Location Option
-              ListTile(
-                leading: const Icon(Icons.my_location, color: Color(0xFF1E3A37)),
-                title: const Text('التحديد التلقائي للموقع عبر GPS'),
-                subtitle: const Text('استخدام الموقع الحالي بالجهاز'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  await provider.updateSettings(true, '', provider.calculationMethod, provider.adhanSound);
-                },
-              ),
-              const Divider(),
-
-              // Manual City Search Field
-              TextField(
-                controller: searchController,
-                decoration: InputDecoration(
-                  hintText: 'ابحث عن اسم مدينتك...',
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'اختر المدينة',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
                 ),
-                onSubmitted: (value) async {
-                  if (value.trim().isNotEmpty) {
-                    Navigator.pop(context);
-                    await provider.updateSettings(false, value.trim(), provider.calculationMethod, provider.adhanSound);
-                  }
-                },
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
 
-              // Popular Cities List
-              SizedBox(
-                height: 220,
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: popularCities.length,
-                  itemBuilder: (context, index) {
-                    final city = popularCities[index];
-                    return ListTile(
-                      title: Text(city['name']!),
-                      subtitle: Text(city['country']!),
-                      onTap: () async {
-                        Navigator.pop(context);
-                        await provider.updateSettings(
-                            false, '${city['name']}، ${city['country']}', provider.calculationMethod, provider.adhanSound);
-                      },
-                    );
+                // GPS Auto Location Option
+                ListTile(
+                  leading: const Icon(Icons.my_location, color: Color(0xFF1E3A37)),
+                  title: const Text('التحديد التلقائي للموقع عبر GPS'),
+                  subtitle: const Text('استخدام الموقع الحالي بالجهاز'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await provider.updateSettings(true, '', provider.calculationMethod, provider.adhanSound);
                   },
                 ),
-              ),
-            ],
+                const Divider(),
+
+                // Manual City Search Field
+                TextField(
+                  controller: searchController,
+                  decoration: InputDecoration(
+                    hintText: 'ابحث عن اسم مدينتك...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onSubmitted: (value) async {
+                    if (value.trim().isNotEmpty) {
+                      Navigator.pop(context);
+                      await provider.updateSettings(false, value.trim(), provider.calculationMethod, provider.adhanSound);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // Popular Cities List
+                SizedBox(
+                  height: 220,
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: popularCities.length,
+                    itemBuilder: (context, index) {
+                      final city = popularCities[index];
+                      return ListTile(
+                        title: Text(city['name']!),
+                        subtitle: Text(city['country']!),
+                        onTap: () async {
+                          Navigator.pop(context);
+                          await provider.updateSettings(
+                              false, '${city['name']}، ${city['country']}', provider.calculationMethod, provider.adhanSound);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

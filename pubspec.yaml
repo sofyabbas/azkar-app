@@ -80,7 +80,7 @@ flutter:
   assets:
     - assets/data/azkar.json
     - android/app/src/main/res/raw/
-    - assets/quran_pages/
+    - assets/quran_data/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

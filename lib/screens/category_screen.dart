@@ -150,15 +150,44 @@ class _CategoryScreenState extends State<CategoryScreen> {
             ),
           ],
         ),
-        body: ListView.builder(
-          padding: const EdgeInsets.all(16.0),
-          itemCount: widget.category.items.length,
-          itemBuilder: (context, index) {
-            final zikr = widget.category.items[index];
-            return ZikrCard(
-              zikr: zikr,
-              categoryId: widget.category.id,
-              index: index + 1,
+        body: Consumer<AzkarProvider>(
+          builder: (context, azkarProvider, child) {
+            final progress = azkarProvider.getCategoryProgress(widget.category);
+            final bool isCompleted = progress.isCompleted;
+            final theme = Theme.of(context);
+            final primaryColor = theme.colorScheme.primary;
+
+            return Column(
+              children: [
+                // Progress Bar Only (no percentage or text)
+                LinearProgressIndicator(
+                  value: progress.progress,
+                  minHeight: 5,
+                  backgroundColor: isCompleted
+                      ? Colors.green.withValues(alpha: 0.2)
+                      : Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isCompleted ? const Color(0xFF2E7D32) : primaryColor,
+                  ),
+                ),
+
+
+                // Azkar Cards List
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16.0),
+                    itemCount: widget.category.items.length,
+                    itemBuilder: (context, index) {
+                      final zikr = widget.category.items[index];
+                      return ZikrCard(
+                        zikr: zikr,
+                        categoryId: widget.category.id,
+                        index: index + 1,
+                      );
+                    },
+                  ),
+                ),
+              ],
             );
           },
         ),
