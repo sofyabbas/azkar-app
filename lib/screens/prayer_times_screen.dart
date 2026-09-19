@@ -48,10 +48,10 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
 
           final nextPrayer = provider.nextPrayer;
           final currentPrayer = provider.currentPrayer;
-          final activePrayerForDisplay = (nextPrayer != Prayer.none) ? nextPrayer : Prayer.fajr;
+          final activePrayerForDisplay = provider.displayPrayer;
 
           final nextPrayerName = _getPrayerName(activePrayerForDisplay, english: _useEnglishFormat);
-          final nextPrayerTime = _getPrayerTime(pt, activePrayerForDisplay);
+          final nextPrayerTime = provider.displayPrayerTime ?? _getPrayerTime(pt, activePrayerForDisplay);
 
           return SafeArea(
             child: Column(
@@ -182,15 +182,40 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  _useEnglishFormat
-                                      ? provider.formattedCountdownShort
-                                      : provider.formattedCountdownArabic,
-                                  style: const TextStyle(
-                                    color: Color(0xFFAECDCB),
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (provider.isPostAdhanPeriod) ...[
+                                      Container(
+                                        width: 8,
+                                        height: 8,
+                                        margin: EdgeInsets.only(
+                                          left: _useEnglishFormat ? 0 : 6,
+                                          right: _useEnglishFormat ? 6 : 0,
+                                        ),
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFF64D2B4),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ],
+                                    Flexible(
+                                      child: Text(
+                                        _useEnglishFormat
+                                            ? provider.formattedCountdownShort
+                                            : provider.formattedCountdownArabic,
+                                        style: TextStyle(
+                                          color: provider.isPostAdhanPeriod
+                                              ? const Color(0xFFE2F7F2)
+                                              : const Color(0xFFAECDCB),
+                                          fontSize: 15,
+                                          fontWeight: provider.isPostAdhanPeriod
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

@@ -211,6 +211,16 @@ class PrayerProvider with ChangeNotifier {
     }
   }
 
+  bool _isDisposed = false;
+  DateTime Function() nowProvider = DateTime.now;
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) {
+      super.notifyListeners();
+    }
+  }
+
   void _startCountdownTimer() {
     _timer?.cancel();
     _updateCountdown();
@@ -220,13 +230,14 @@ class PrayerProvider with ChangeNotifier {
   }
 
   void _updateCountdown() {
-    if (_prayerTimes == null) return;
+    if (_prayerTimes == null || _isDisposed) return;
     
-    final now = DateTime.now();
-    DateTime nextTime = _prayerTimes!.timeForPrayer(_prayerTimes!.nextPrayer()) ?? now;
+    final now = nowProvider();
+    final next = nextPrayer;
+    DateTime nextTime = _prayerTimes!.timeForPrayer(next) ?? now;
     
-    if (_prayerTimes!.nextPrayer() == Prayer.none) {
-      final tomorrow = DateTime.now().add(const Duration(days: 1));
+    if (_prayerTimes!.nextPrayerByDateTime(now) == Prayer.none) {
+      final tomorrow = now.add(const Duration(days: 1));
       final nextDate = DateComponents.from(tomorrow);
       
       // Calculate tomorrow's fajr using the same coordinates that was used for _prayerTimes
@@ -449,16 +460,200 @@ class PrayerProvider with ChangeNotifier {
   
   Prayer get currentPrayer {
     if (_prayerTimes == null) return Prayer.none;
-    return _prayerTimes!.currentPrayer();
+    return _prayerTimes!.currentPrayerByDateTime(nowProvider());
   }
 
   Prayer get nextPrayer {
     if (_prayerTimes == null) return Prayer.fajr;
-    final next = _prayerTimes!.nextPrayer();
+    final next = _prayerTimes!.nextPrayerByDateTime(nowProvider());
     return next == Prayer.none ? Prayer.fajr : next;
   }
 
+  int getPostAdhanThresholdMinutes(Prayer prayer) {
+    switch (prayer) {
+      case Prayer.fajr:
+        return 20;
+      case Prayer.dhuhr:
+        return 15;
+      case Prayer.asr:
+        return 15;
+      case Prayer.maghrib:
+        return 5;
+      case Prayer.isha:
+        return 15;
+      default:
+        return 0;
+    }
+  }
+
+  Prayer? get activePostAdhanPrayer {
+    if (_prayerTimes == null) return null;
+    final now = nowProvider();
+
+    // Check today's 5 adhan prayers
+    final prayers = [
+      Prayer.fajr,
+      Prayer.dhuhr,
+      Prayer.asr,
+      Prayer.maghrib,
+      Prayer.isha,
+    ];
+
+    for (final prayer in prayers) {
+      final pTime = _prayerTimes!.timeForPrayer(prayer);
+      if (pTime == null) continue;
+
+      final threshold = getPostAdhanThresholdMinutes(prayer);
+      if (now.isAfter(pTime) || now.isAtSameMomentAs(pTime)) {
+        final diff = now.difference(pTime);
+        if (diff.inMinutes <= threshold) {
+          return prayer;
+        }
+      }
+    }
+
+    // Edge case: yesterday's Isha if now is shortly after midnight
+    if (now.hour == 0 && now.minute < 20) {
+      try {
+        final yesterday = now.subtract(const Duration(days: 1));
+        final coords = _prayerTimes!.coordinates;
+        final params = _calculationMethod.getParameters();
+        params.madhab = Madhab.shafi;
+        final yesterdayTimes = PrayerTimes(coords, DateComponents.from(yesterday), params);
+        final yesterdayIsha = yesterdayTimes.isha;
+        final ishaThreshold = getPostAdhanThresholdMinutes(Prayer.isha);
+        if (now.isAfter(yesterdayIsha) || now.isAtSameMomentAs(yesterdayIsha)) {
+          final diff = now.difference(yesterdayIsha);
+          if (diff.inMinutes <= ishaThreshold) {
+            return Prayer.isha;
+          }
+        }
+      } catch (_) {}
+    }
+
+    return null;
+  }
+
+  bool get isPostAdhanPeriod => activePostAdhanPrayer != null;
+
+  Duration get postAdhanElapsed {
+    if (_prayerTimes == null) return Duration.zero;
+    final prayer = activePostAdhanPrayer;
+    if (prayer == null) return Duration.zero;
+
+    final now = nowProvider();
+    var pTime = _prayerTimes!.timeForPrayer(prayer);
+    if (pTime == null || pTime.isAfter(now)) {
+      // Must be yesterday's Isha
+      try {
+        final yesterday = now.subtract(const Duration(days: 1));
+        final coords = _prayerTimes!.coordinates;
+        final params = _calculationMethod.getParameters();
+        params.madhab = Madhab.shafi;
+        final yesterdayTimes = PrayerTimes(coords, DateComponents.from(yesterday), params);
+        pTime = yesterdayTimes.isha;
+      } catch (_) {}
+    }
+
+    if (pTime != null && (now.isAfter(pTime) || now.isAtSameMomentAs(pTime))) {
+      return now.difference(pTime);
+    }
+    return Duration.zero;
+  }
+
+  Prayer get displayPrayer {
+    if (isPostAdhanPeriod && activePostAdhanPrayer != null) {
+      return activePostAdhanPrayer!;
+    }
+    return nextPrayer;
+  }
+
+  DateTime? get displayPrayerTime {
+    if (_prayerTimes == null) return null;
+    if (isPostAdhanPeriod && activePostAdhanPrayer != null) {
+      final pTime = _prayerTimes!.timeForPrayer(activePostAdhanPrayer!);
+      if (pTime != null && pTime.isBefore(nowProvider())) {
+        return pTime;
+      }
+      // Handle yesterday's Isha if needed
+      if (activePostAdhanPrayer == Prayer.isha) {
+        try {
+          final yesterday = nowProvider().subtract(const Duration(days: 1));
+          final coords = _prayerTimes!.coordinates;
+          final params = _calculationMethod.getParameters();
+          params.madhab = Madhab.shafi;
+          final yesterdayTimes = PrayerTimes(coords, DateComponents.from(yesterday), params);
+          return yesterdayTimes.isha;
+        } catch (_) {}
+      }
+      return pTime;
+    }
+
+    final next = nextPrayer;
+    if (_prayerTimes!.nextPrayer() == Prayer.none) {
+      // After Isha, next prayer is tomorrow's Fajr
+      final tomorrow = nowProvider().add(const Duration(days: 1));
+      final nextDate = DateComponents.from(tomorrow);
+      final coords = _prayerTimes!.coordinates;
+      final params = _calculationMethod.getParameters();
+      params.madhab = Madhab.shafi;
+      final nextDayTimes = PrayerTimes(coords, nextDate, params);
+      return nextDayTimes.fajr;
+    }
+    return _prayerTimes!.timeForPrayer(next);
+  }
+
+  String getPrayerArabicName(Prayer prayer) {
+    switch (prayer) {
+      case Prayer.fajr:
+        return 'الفجر';
+      case Prayer.sunrise:
+        return 'الشروق';
+      case Prayer.dhuhr:
+        return 'الظهر';
+      case Prayer.asr:
+        return 'العصر';
+      case Prayer.maghrib:
+        return 'المغرب';
+      case Prayer.isha:
+        return 'العشاء';
+      default:
+        return 'الظهر';
+    }
+  }
+
+  String getPrayerEnglishName(Prayer prayer) {
+    switch (prayer) {
+      case Prayer.fajr:
+        return 'Fajr';
+      case Prayer.sunrise:
+        return 'Shuruq';
+      case Prayer.dhuhr:
+        return 'Dhuhr';
+      case Prayer.asr:
+        return 'Asr';
+      case Prayer.maghrib:
+        return 'Maghrib';
+      case Prayer.isha:
+        return 'Isha';
+      default:
+        return 'Dhuhr';
+    }
+  }
+
   String get formattedCountdownShort {
+    if (isPostAdhanPeriod && activePostAdhanPrayer != null) {
+      final name = getPrayerEnglishName(activePostAdhanPrayer!);
+      final elapsedMinutes = postAdhanElapsed.inMinutes;
+      if (elapsedMinutes <= 0) {
+        return '$name Adhan is now';
+      } else if (elapsedMinutes == 1) {
+        return '1m since $name Adhan';
+      } else {
+        return '${elapsedMinutes}m since $name Adhan';
+      }
+    }
+
     final hours = timeUntilNextPrayer.inHours;
     final mins = timeUntilNextPrayer.inMinutes.remainder(60);
     if (hours > 0) {
@@ -469,12 +664,30 @@ class PrayerProvider with ChangeNotifier {
   }
 
   String get formattedCountdownArabic {
+    if (isPostAdhanPeriod && activePostAdhanPrayer != null) {
+      final name = getPrayerArabicName(activePostAdhanPrayer!);
+      final elapsedMinutes = postAdhanElapsed.inMinutes;
+      if (elapsedMinutes <= 0) {
+        return 'الآن أذان $name';
+      } else if (elapsedMinutes == 1) {
+        return 'مرت دقيقة على أذان $name';
+      } else if (elapsedMinutes == 2) {
+        return 'مرت دقيقتان على أذان $name';
+      } else if (elapsedMinutes >= 3 && elapsedMinutes <= 10) {
+        return 'مرت $elapsedMinutes دقائق على أذان $name';
+      } else {
+        return 'مرت $elapsedMinutes دقيقة على أذان $name';
+      }
+    }
+
     final hours = timeUntilNextPrayer.inHours;
     final mins = timeUntilNextPrayer.inMinutes.remainder(60);
     if (hours > 0) {
       return 'متبقي $hours ساعة و $mins دقيقة';
-    } else {
+    } else if (mins > 0) {
       return 'متبقي $mins دقيقة';
+    } else {
+      return 'متبقي أقل من دقيقة';
     }
   }
   
@@ -486,8 +699,14 @@ class PrayerProvider with ChangeNotifier {
     return "- $hours:$minutes:$seconds";
   }
 
+  void setPrayerTimesForTesting(PrayerTimes pt) {
+    _prayerTimes = pt;
+    _updateCountdown();
+  }
+
   @override
   void dispose() {
+    _isDisposed = true;
     _timer?.cancel();
     super.dispose();
   }
