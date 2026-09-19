@@ -569,6 +569,8 @@ class _InfoChip extends StatelessWidget {
             Text(
               label,
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.8)),
             ),
           ],

@@ -45,6 +45,18 @@ class DailyProgress {
     required this.isSuccess,
   });
 
+  /// True if all 5 prayers are completed in congregation (Dark Green #1B5E20)
+  bool get isAllPrayersCompleted =>
+      prayers.length == 5 && prayers.values.every((p) => p.isCompleted);
+
+  /// True if Fajr and Isha are completed in congregation (Light Green #43A047)
+  bool get hasFajrAndIsha =>
+      (prayers['الفجر']?.isCompleted ?? false) &&
+      (prayers['العشاء']?.isCompleted ?? false);
+
+  /// True if the day qualifies for the 40-day challenge (Dark Green OR Light Green)
+  bool get isChallengeQualified => isAllPrayersCompleted || hasFajrAndIsha;
+
   Map<String, dynamic> toJson() => {
         'dayIndex': dayIndex,
         'date': date.toIso8601String(),

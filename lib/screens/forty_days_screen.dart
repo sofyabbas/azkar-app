@@ -10,10 +10,18 @@ import '../models/forty_days_model.dart';
 class FortyDaysScreen extends StatelessWidget {
   const FortyDaysScreen({super.key});
 
+  bool isTodayQualified(Map<String, PrayerLog> todaysPrayers) {
+    final bool isAllCompleted = todaysPrayers.values.length == 5 &&
+        todaysPrayers.values.every((p) => p.isCompleted);
+    final bool hasFajrAndIsha = (todaysPrayers['الفجر']?.isCompleted ?? false) &&
+        (todaysPrayers['العشاء']?.isCompleted ?? false);
+    return isAllCompleted || hasFajrAndIsha;
+  }
+
   int getCurrentStreak(List<DailyProgress> history) {
     int streak = 0;
     for (int i = history.length - 1; i >= 0; i--) {
-      if (history[i].isSuccess) {
+      if (history[i].isChallengeQualified) {
         streak++;
       } else {
         break;
@@ -26,7 +34,7 @@ class FortyDaysScreen extends StatelessWidget {
     int maxStreak = 0;
     int current = 0;
     for (var day in history) {
-      if (day.isSuccess) {
+      if (day.isChallengeQualified) {
         current++;
         if (current > maxStreak) {
           maxStreak = current;
@@ -73,10 +81,30 @@ class FortyDaysScreen extends StatelessWidget {
 
     final int currentStreak = getCurrentStreak(state.history);
     final int maxStreak = getMaxStreak(state.history);
-    final bool isTodayCompleted = state.todaysPrayers.values.every((p) => p.isCompleted);
+    final bool isTodayCompleted = isTodayQualified(state.todaysPrayers);
     final int displayStreak = currentStreak + (isTodayCompleted ? 1 : 0);
     final int displayMaxStreak = math.max(maxStreak, displayStreak);
     final double progress = (displayStreak / 40.0).clamp(0.0, 1.0);
+
+    // Breakdown counts of qualifying days (Dark Green vs Light Green)
+    int fullPrayersDays = 0;
+    int fajrIshaDays = 0;
+    for (var day in state.history) {
+      if (day.isAllPrayersCompleted) {
+        fullPrayersDays++;
+      } else if (day.hasFajrAndIsha) {
+        fajrIshaDays++;
+      }
+    }
+    final bool todayAll = state.todaysPrayers.values.length == 5 &&
+        state.todaysPrayers.values.every((p) => p.isCompleted);
+    final bool todayFI = (state.todaysPrayers['الفجر']?.isCompleted ?? false) &&
+        (state.todaysPrayers['العشاء']?.isCompleted ?? false);
+    if (todayAll) {
+      fullPrayersDays++;
+    } else if (todayFI) {
+      fajrIshaDays++;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -150,7 +178,75 @@ class FortyDaysScreen extends StatelessWidget {
               child: Column(
                 children: [
                   Text('السلسلة الحالية: $displayStreak من 40 يوم', style: theme.textTheme.headlineSmall?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1B5E20).withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF1B5E20).withValues(alpha: 0.25)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF1B5E20),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'صلوات كاملة: $fullPrayersDays',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1B5E20),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF43A047).withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF43A047).withValues(alpha: 0.25)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF43A047),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'فجر وعشاء: $fajrIshaDays',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2E7D32),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
                   LinearProgressIndicator(
                     value: progress,
                     minHeight: 12,
@@ -159,7 +255,11 @@ class FortyDaysScreen extends StatelessWidget {
                     color: theme.colorScheme.primary,
                   ),
                   const SizedBox(height: 16),
-                  Text('من صلى لله أربعين يوماً في جماعة يدرك التكبيرة الأولى كتبت له براءتان...', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[700], fontStyle: FontStyle.italic)),
+                  Text(
+                    'قال ﷺ: «من صلى لله أربعين يوماً في جماعة يدرك التكبيرة الأولى كتبت له براءتان: براءة من النار وبراءة من النفاق»... وجاء في فضل صلاتي الفجر والعشاء في جماعة أربعين ليلة كتابة البراءتين وأجر قيام الليل كله.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey[700], fontSize: 12.5, height: 1.4, fontStyle: FontStyle.italic),
+                  ),
                 ],
               ),
             ),
@@ -397,11 +497,21 @@ class FortyDaysScreen extends StatelessWidget {
 
                 if (index < history.length) {
                   final dayProgress = history[index];
-                  if (dayProgress.isSuccess) {
-                    cellColor = const Color(0xFF2E7D32);
+                  final prayers = dayProgress.prayers;
+                  final isAllCompleted = dayProgress.isAllPrayersCompleted;
+                  final hasFajrAndIsha = dayProgress.hasFajrAndIsha;
+
+                  if (isAllCompleted) {
+                    cellColor = const Color(0xFF1B5E20); // أخضر داكن (تقيل) - إتمام الصلوات الخمس
+                  } else if (hasFajrAndIsha) {
+                    cellColor = const Color(0xFF43A047); // أخضر أخف قليلاً - الفجر والعشاء في جماعة
+                  } else if (prayers.values.any((p) => p.isCompleted)) {
+                    cellColor = const Color(0xFFFFB300); // برتقالي - صلوات أخرى
                   } else {
-                    cellColor = const Color(0xFFFFB300);
+                    cellColor = Colors.grey[300]!;
+                    textColor = Colors.black54;
                   }
+
                   onTap = () {
                     _showDayDetailsBottomSheet(
                       context: context,
@@ -412,14 +522,21 @@ class FortyDaysScreen extends StatelessWidget {
                   };
                 } else if (index == history.length) {
                   final completedCount = state.todaysPrayers.values.where((p) => p.isCompleted).length;
+                  final isFajrToday = state.todaysPrayers['الفجر']?.isCompleted ?? false;
+                  final isIshaToday = state.todaysPrayers['العشاء']?.isCompleted ?? false;
+                  final hasFajrAndIshaToday = isFajrToday && isIshaToday;
+
                   if (completedCount == 5) {
-                    cellColor = const Color(0xFF2E7D32);
+                    cellColor = const Color(0xFF1B5E20); // أخضر تقيل
+                  } else if (hasFajrAndIshaToday) {
+                    cellColor = const Color(0xFF43A047); // أخضر أخف
                   } else if (completedCount > 0) {
-                    cellColor = const Color(0xFFFF9800);
+                    cellColor = const Color(0xFFFF9800); // برتقالي
                   } else {
                     cellColor = Colors.grey[350]!;
                     textColor = Colors.black87;
                   }
+
                   onTap = () {
                     _showDayDetailsBottomSheet(
                       context: context,
@@ -462,9 +579,46 @@ class FortyDaysScreen extends StatelessWidget {
                 );
               },
             ),
+            const SizedBox(height: 14),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                _buildLegendItem(const Color(0xFF1B5E20), 'الخمس صلوات كاملة'),
+                _buildLegendItem(const Color(0xFF43A047), 'الفجر والعشاء جماعة (قيام ليلة وبراءة)'),
+                _buildLegendItem(const Color(0xFFFF9800), 'صلوات جزئية'),
+                _buildLegendItem(Colors.grey[350]!, 'أيام قادمة', isBordered: true),
+              ],
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildLegendItem(Color color, String text, {bool isBordered = false}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+            border: isBordered ? Border.all(color: Colors.grey[400]!, width: 0.8) : null,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Flexible(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 11, color: Colors.black87, fontWeight: FontWeight.w500),
+          ),
+        ),
+      ],
     );
   }
 
@@ -665,17 +819,40 @@ class FortyDaysScreen extends StatelessWidget {
             
             // Extract prayers & completion status dynamically from provider state
             Map<String, PrayerLog> prayers = {};
-            bool isSuccess = false;
             if (isToday) {
               prayers = currentState.todaysPrayers;
-              isSuccess = prayers.values.every((p) => p.isCompleted);
             } else {
               final historyIndex = dayIndex - 1;
               if (historyIndex >= 0 && historyIndex < currentState.history.length) {
                 final progress = currentState.history[historyIndex];
                 prayers = progress.prayers;
-                isSuccess = progress.isSuccess;
               }
+            }
+
+            final bool isAllCompleted = prayers.values.length == 5 &&
+                prayers.values.every((p) => p.isCompleted);
+            final bool hasFajrAndIsha = (prayers['الفجر']?.isCompleted ?? false) &&
+                (prayers['العشاء']?.isCompleted ?? false);
+
+            String statusTitle;
+            Color statusBgColor;
+            Color statusTextColor;
+            if (isAllCompleted) {
+              statusTitle = 'الخمس صلوات كاملة 🎉 (معتمدة)';
+              statusBgColor = const Color(0xFF1B5E20).withValues(alpha: 0.12);
+              statusTextColor = const Color(0xFF1B5E20);
+            } else if (hasFajrAndIsha) {
+              statusTitle = 'الفجر والعشاء جماعة 🌟 (معتمدة)';
+              statusBgColor = const Color(0xFF43A047).withValues(alpha: 0.12);
+              statusTextColor = const Color(0xFF2E7D32);
+            } else if (isToday) {
+              statusTitle = 'جاري التحدي ⚡';
+              statusBgColor = Colors.amber.withValues(alpha: 0.12);
+              statusTextColor = Colors.amber.shade900;
+            } else {
+              statusTitle = 'غير مكتمل ⚠️';
+              statusBgColor = Colors.orange.withValues(alpha: 0.12);
+              statusTextColor = Colors.orange.shade900;
             }
 
             return DraggableScrollableSheet(
@@ -707,26 +884,29 @@ class FortyDaysScreen extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'تفاصيل اليوم $dayIndex',
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
+                          Expanded(
+                            child: Text(
+                              'تفاصيل اليوم $dayIndex',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: isSuccess
-                                  ? const Color(0xFF2E7D32).withValues(alpha: 0.1)
-                                  : Colors.amber.withValues(alpha: 0.1),
+                              color: statusBgColor,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              isSuccess ? 'مكتمل بنجاح 🎉' : (isToday ? 'جاري التحدي ⚡' : 'غير مكتمل ⚠️'),
+                              statusTitle,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: isSuccess ? const Color(0xFF2E7D32) : Colors.amber.shade900,
+                                fontSize: 12.5,
+                                color: statusTextColor,
                               ),
                             ),
                           ),
@@ -813,6 +993,8 @@ class FortyDaysScreen extends StatelessWidget {
                                 IconButton(
                                   icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary, size: 20),
                                   tooltip: 'تعديل اسم المسجد لهذه الصلاة',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                                   onPressed: () {
                                     _showEditPrayerMosqueDialog(
                                       context: context,
@@ -826,6 +1008,8 @@ class FortyDaysScreen extends StatelessWidget {
                                 IconButton(
                                   icon: const Icon(Icons.undo, color: Colors.redAccent, size: 20),
                                   tooltip: 'إلغاء الإثبات',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                                   onPressed: () {
                                     showDialog(
                                       context: context,
@@ -854,6 +1038,8 @@ class FortyDaysScreen extends StatelessWidget {
                                 IconButton(
                                   icon: Icon(Icons.check_circle_outline, color: theme.colorScheme.primary, size: 20),
                                   tooltip: 'إثبات الصلاة يدوياً في المسجد',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                                   onPressed: () {
                                     _showManualCheckInSheet(
                                       context,
@@ -869,6 +1055,48 @@ class FortyDaysScreen extends StatelessWidget {
                           ),
                         );
                       }),
+                      if (hasFajrAndIsha) ...[
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF43A047).withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFF43A047).withValues(alpha: 0.25)),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('✨', style: TextStyle(fontSize: 22)),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'هنيئاً لك! أدركت الفجر والعشاء في جماعة',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: Color(0xFF1B5E20),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'قال ﷺ: «من صلى العشاء في جماعة فكأنما قام نصف الليل، ومن صلى الصبح في جماعة فكأنما صلى الليل كله» (رواه مسلم). وجاء في حديث أربعين ليلة في جماعة: «كتبت له براءتان: براءة من النار وبراءة من النفاق» (شعب الإيمان للبيهقي).',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[800],
+                                        height: 1.45,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 );
@@ -982,10 +1210,14 @@ class FortyDaysScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'إجمالي الصلوات المؤداة فيه:',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    const Expanded(
+                      child: Text(
+                        'إجمالي الصلوات المؤداة فيه:',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
@@ -1305,17 +1537,17 @@ class FortyDaysScreen extends StatelessWidget {
     String prayerName,
     ThemeData theme, {
     int? historyIndex,
-  }) async {
+  }) {
     final searchController = TextEditingController();
-    
-    // We can also silently check for close mosque as suggestion
-    SavedMosque? recommendedMosque;
-    try {
-      recommendedMosque = await provider.verifyLocationGpsSilently();
-    } catch (_) {}
-    final recommended = recommendedMosque;
+    final messenger = ScaffoldMessenger.of(context);
 
-    if (!context.mounted) return;
+    // If today, silently check for close mosque without blocking sheet opening
+    SavedMosque? recommendedMosque;
+    if (historyIndex == null) {
+      provider.verifyLocationGpsSilently().then((mosque) {
+        recommendedMosque = mosque;
+      }).catchError((_) {});
+    }
 
     showModalBottomSheet(
       context: context,
@@ -1324,21 +1556,53 @@ class FortyDaysScreen extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) {
+      builder: (sheetCtx) {
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (modalCtx, setModalState) {
             final query = searchController.text.trim();
             final savedMosques = provider.state?.savedMosques ?? [];
             final filteredMosques = savedMosques.where((m) {
               return m.name.toLowerCase().contains(query.toLowerCase());
             }).toList();
 
+            Future<void> handleSelectMosque(String? selectedMosqueName) async {
+              // Close the bottom sheet immediately
+              if (Navigator.of(sheetCtx).canPop()) {
+                Navigator.of(sheetCtx).pop();
+              }
+
+              try {
+                if (historyIndex == null) {
+                  await provider.markPrayerCompleted(
+                    prayerName,
+                    byGps: false,
+                    mosqueName: selectedMosqueName,
+                  );
+                } else {
+                  await provider.setPastDayPrayerStatus(
+                    historyIndex,
+                    prayerName,
+                    true,
+                    mosqueName: selectedMosqueName,
+                  );
+                }
+                final msg = (selectedMosqueName != null && selectedMosqueName.trim().isNotEmpty)
+                    ? 'تم الإثبات يدوياً في مسجد: "$selectedMosqueName"! 🕌'
+                    : 'تم الإثبات يدوياً بنجاح!';
+                messenger.showSnackBar(SnackBar(content: Text(msg)));
+              } catch (e) {
+                messenger.showSnackBar(
+                  SnackBar(content: Text('حدث خطأ أثناء حفظ الإثبات: $e'), backgroundColor: Colors.red),
+                );
+              }
+            }
+
             return DraggableScrollableSheet(
               initialChildSize: 0.7,
               minChildSize: 0.4,
               maxChildSize: 0.95,
               expand: false,
-              builder: (context, scrollController) {
+              builder: (scrollCtx, scrollController) {
                 return Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Column(
@@ -1359,9 +1623,12 @@ class FortyDaysScreen extends StatelessWidget {
                         children: [
                           Icon(Icons.check_circle, color: theme.colorScheme.primary, size: 28),
                           const SizedBox(width: 12),
-                          Text(
-                            historyIndex == null ? 'إثبات صلاة $prayerName يدوياً' : 'تعديل صلاة $prayerName لليوم السابق',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          Expanded(
+                            child: Text(
+                              historyIndex == null ? 'إثبات صلاة $prayerName يدوياً' : 'تعديل صلاة $prayerName لليوم السابق',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       ),
@@ -1377,7 +1644,7 @@ class FortyDaysScreen extends StatelessWidget {
                         controller: searchController,
                         textAlign: TextAlign.right,
                         onChanged: (val) {
-                          setState(() {});
+                          setModalState(() {});
                         },
                         decoration: InputDecoration(
                           hintText: 'البحث عن مسجد أو كتابة اسم جديد...',
@@ -1387,7 +1654,7 @@ class FortyDaysScreen extends StatelessWidget {
                                   icon: const Icon(Icons.clear),
                                   onPressed: () {
                                     searchController.clear();
-                                    setState(() {});
+                                    setModalState(() {});
                                   },
                                 )
                               : null,
@@ -1400,7 +1667,7 @@ class FortyDaysScreen extends StatelessWidget {
                       const SizedBox(height: 16),
 
                       // Recommended Mosque (GPS suggestion)
-                      if (historyIndex == null && recommended != null && query.isEmpty) ...[
+                      if (historyIndex == null && recommendedMosque != null && query.isEmpty) ...[
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -1409,19 +1676,7 @@ class FortyDaysScreen extends StatelessWidget {
                             border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
                           ),
                           child: InkWell(
-                            onTap: () async {
-                              await provider.markPrayerCompleted(
-                                prayerName,
-                                byGps: false,
-                                mosqueName: recommended.name,
-                              );
-                              if (context.mounted) {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('تم الإثبات يدوياً في مسجد: "${recommended.name}"! 🕌')),
-                                );
-                              }
-                            },
+                            onTap: () => handleSelectMosque(recommendedMosque!.name),
                             child: Row(
                               children: [
                                 Icon(Icons.stars, color: theme.colorScheme.primary),
@@ -1436,7 +1691,7 @@ class FortyDaysScreen extends StatelessWidget {
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
-                                        recommended.name,
+                                        recommendedMosque!.name,
                                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                                       ),
                                     ],
@@ -1463,19 +1718,7 @@ class FortyDaysScreen extends StatelessWidget {
                               child: ListTile(
                                 leading: const Icon(Icons.location_off, color: Colors.grey),
                                 title: const Text('إثبات بدون تحديد مسجد', style: TextStyle(fontWeight: FontWeight.bold)),
-                                onTap: () async {
-                                  if (historyIndex == null) {
-                                    await provider.markPrayerCompleted(prayerName, byGps: false, mosqueName: null);
-                                  } else {
-                                    await provider.setPastDayPrayerStatus(historyIndex, prayerName, true, mosqueName: null);
-                                  }
-                                  if (context.mounted) {
-                                    Navigator.pop(context);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('تم الإثبات يدوياً بنجاح!')),
-                                    );
-                                  }
-                                },
+                                onTap: () => handleSelectMosque(null),
                               ),
                             ),
                             
@@ -1491,19 +1734,7 @@ class FortyDaysScreen extends StatelessWidget {
                                 child: ListTile(
                                   leading: Icon(Icons.add_location_alt, color: theme.colorScheme.secondary),
                                   title: Text('إثبات في مسجد جديد باسم: "$query"', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  onTap: () async {
-                                    if (historyIndex == null) {
-                                      await provider.markPrayerCompleted(prayerName, byGps: false, mosqueName: query);
-                                    } else {
-                                      await provider.setPastDayPrayerStatus(historyIndex, prayerName, true, mosqueName: query);
-                                    }
-                                    if (context.mounted) {
-                                      Navigator.pop(context);
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('تم الإثبات يدوياً في مسجد: "$query"!')),
-                                      );
-                                    }
-                                  },
+                                  onTap: () => handleSelectMosque(query),
                                 ),
                               ),
                             ],
@@ -1527,19 +1758,7 @@ class FortyDaysScreen extends StatelessWidget {
                                       child: Icon(Icons.mosque, color: theme.colorScheme.primary, size: 18),
                                     ),
                                     title: Text(m.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    onTap: () async {
-                                      if (historyIndex == null) {
-                                        await provider.markPrayerCompleted(prayerName, byGps: false, mosqueName: m.name);
-                                      } else {
-                                        await provider.setPastDayPrayerStatus(historyIndex, prayerName, true, mosqueName: m.name);
-                                      }
-                                      if (context.mounted) {
-                                        Navigator.pop(context);
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('تم الإثبات يدوياً في مسجد: "${m.name}"! 🕌')),
-                                        );
-                                      }
-                                    },
+                                    onTap: () => handleSelectMosque(m.name),
                                   ),
                                 );
                               }),
@@ -1631,9 +1850,12 @@ class FortyDaysScreen extends StatelessWidget {
                         children: [
                           Icon(Icons.analytics_outlined, color: theme.colorScheme.secondary, size: 28),
                           const SizedBox(width: 12),
-                          const Text(
-                            'تقرير صلوات المساجد بالفترة',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          const Expanded(
+                            child: Text(
+                              'تقرير صلوات المساجد بالفترة',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       ),
@@ -1671,20 +1893,24 @@ class FortyDaysScreen extends StatelessWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'الفترة المحددة:',
-                                    style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'من $startStr إلى $endStr',
-                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'الفترة المحددة:',
+                                      style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'من $startStr إلى $endStr',
+                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
                               ),
+                              const SizedBox(width: 8),
                               Icon(Icons.date_range, color: theme.colorScheme.secondary),
                             ],
                           ),
@@ -1696,10 +1922,14 @@ class FortyDaysScreen extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'إجمالي صلوات المساجد بالفترة:',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          const Expanded(
+                            child: Text(
+                              'إجمالي صلوات المساجد بالفترة:',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Text(
                             '$totalPeriodPrayers صلاة',
                             style: TextStyle(

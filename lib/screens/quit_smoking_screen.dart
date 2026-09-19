@@ -142,7 +142,7 @@ class QuitSmokingScreen extends StatelessWidget {
           crossAxisCount: 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 1.35,
+          childAspectRatio: 1.15,
           children: [
             _buildStatCard(
               theme,
@@ -204,9 +204,10 @@ class QuitSmokingScreen extends StatelessWidget {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.all(11.0),
+        padding: const EdgeInsets.all(12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -223,9 +224,10 @@ class QuitSmokingScreen extends StatelessWidget {
                 Icon(icon, color: iconColor, size: 18),
               ],
             ),
-            const Spacer(),
+            const SizedBox(height: 6),
             FittedBox(
               fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
               child: Text(
                 value,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.primary),

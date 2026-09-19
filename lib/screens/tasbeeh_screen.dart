@@ -309,14 +309,18 @@ class _TasbeehScreenState extends State<TasbeehScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'مجموع الجلسة: $_totalSessionCount تسبيحة',
-                              style: TextStyle(
-                                color: Colors.grey[700],
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
+                            Expanded(
+                              child: Text(
+                                'مجموع الجلسة: $_totalSessionCount تسبيحة',
+                                style: TextStyle(
+                                  color: Colors.grey[700],
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            const SizedBox(width: 8),
                             OutlinedButton.icon(
                               onPressed: _resetCounter,
                               icon: const Icon(Icons.restart_alt, size: 16),

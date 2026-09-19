@@ -701,9 +701,13 @@ class _QiblaScreenState extends State<QiblaScreen> with SingleTickerProviderStat
                       children: [
                         Icon(Icons.location_on, color: theme.colorScheme.primary),
                         const SizedBox(width: 8),
-                        Text(
-                          _locationName,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        Flexible(
+                          child: Text(
+                            _locationName,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
                         ),
                       ],
                     ),

@@ -229,10 +229,11 @@ class _QuranReadingScreenState extends State<QuranReadingScreen> {
                         '﴿ $verseText ﴾',
                         textAlign: TextAlign.center,
                         textDirection: TextDirection.rtl,
-                        style: GoogleFonts.amiri(
-                          fontSize: 21,
+                        style: const TextStyle(
+                          fontFamily: 'UthmanTN',
+                          fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1E3A37),
+                          color: Color(0xFF1E3A37),
                           height: 1.9,
                         ),
                       ),
@@ -346,7 +347,14 @@ class _QuranReadingScreenState extends State<QuranReadingScreen> {
           ),
         );
       },
-    );
+    ).then((_) {
+      if (mounted) {
+        setState(() {
+          _selectedSurah = null;
+          _selectedVerse = null;
+        });
+      }
+    });
   }
 
   void _showPageTafsirModal(int pageNumber) async {
@@ -438,10 +446,11 @@ class _QuranReadingScreenState extends State<QuranReadingScreen> {
                                 Text(
                                   '﴿ ${item['verseText']} ﴾',
                                   textDirection: TextDirection.rtl,
-                                  style: GoogleFonts.amiri(
-                                    fontSize: 16,
+                                  style: const TextStyle(
+                                    fontFamily: 'UthmanTN',
+                                    fontSize: 17.5,
                                     fontWeight: FontWeight.bold,
-                                    color: const Color(0xFFB88E3E),
+                                    color: Color(0xFFB88E3E),
                                   ),
                                 ),
                                 const SizedBox(height: 8),

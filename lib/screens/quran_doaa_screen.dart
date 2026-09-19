@@ -150,10 +150,11 @@ class _QuranDoaaScreenState extends State<QuranDoaaScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(
-                          height: 1,
-                          width: 60,
-                          color: goldColor.withValues(alpha: 0.6),
+                        Expanded(
+                          child: Container(
+                            height: 1,
+                            color: goldColor.withValues(alpha: 0.6),
+                          ),
                         ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -166,10 +167,11 @@ class _QuranDoaaScreenState extends State<QuranDoaaScreen> {
                             ),
                           ),
                         ),
-                        Container(
-                          height: 1,
-                          width: 60,
-                          color: goldColor.withValues(alpha: 0.6),
+                        Expanded(
+                          child: Container(
+                            height: 1,
+                            color: goldColor.withValues(alpha: 0.6),
+                          ),
                         ),
                       ],
                     ),

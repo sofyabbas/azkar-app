@@ -81,15 +81,19 @@ class FortyDaysProvider with ChangeNotifier {
     final lastUpdated = _state!.lastUpdatedDate ?? _state!.startDate;
     
     if (now.day != lastUpdated.day || now.month != lastUpdated.month || now.year != lastUpdated.year) {
-      // It's a new day! Check if yesterday was completed.
-      bool allCompleted = _state!.todaysPrayers.values.every((p) => p.isCompleted);
+      // It's a new day! Check if yesterday was completed (all 5 or Fajr & Isha in congregation).
+      final allCompleted = _state!.todaysPrayers.values.length == 5 &&
+          _state!.todaysPrayers.values.every((p) => p.isCompleted);
+      final fajrAndIsha = (_state!.todaysPrayers['الفجر']?.isCompleted ?? false) &&
+          (_state!.todaysPrayers['العشاء']?.isCompleted ?? false);
+      final isQualified = allCompleted || fajrAndIsha;
       
       final updatedHistory = List<DailyProgress>.from(_state!.history);
       updatedHistory.add(DailyProgress(
         dayIndex: _state!.currentDayIndex,
         date: lastUpdated,
         prayers: _state!.todaysPrayers,
-        isSuccess: allCompleted,
+        isSuccess: isQualified,
       ));
       
       _state = FortyDaysState(
@@ -198,15 +202,18 @@ class FortyDaysProvider with ChangeNotifier {
       );
     }
 
-    // Re-evaluate if all 5 prayers are completed
+    // Re-evaluate if day is qualified (all 5 or Fajr & Isha in congregation)
     final allCompleted = updatedPrayers.values.length == 5 && 
         updatedPrayers.values.every((p) => p.isCompleted);
+    final fajrAndIsha = (updatedPrayers['الفجر']?.isCompleted ?? false) &&
+        (updatedPrayers['العشاء']?.isCompleted ?? false);
+    final isQualified = allCompleted || fajrAndIsha;
 
     updatedHistory[historyIndex] = DailyProgress(
       dayIndex: dayProgress.dayIndex,
       date: dayProgress.date,
       prayers: updatedPrayers,
-      isSuccess: allCompleted,
+      isSuccess: isQualified,
     );
 
     _state = FortyDaysState(
